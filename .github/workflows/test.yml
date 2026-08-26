@@ -1,0 +1,80 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  # Lets deploy.yml run this suite as a gate before deploying.
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: jobmatch
+          POSTGRES_PASSWORD: jobmatch
+          POSTGRES_DB: jobmatch_test
+        # 5433 on the runner to match backend/.env.test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Backend only. The frontend still has lint errors, so the root `lint`
+      # script would fail every run until those are cleared.
+      - name: Lint backend
+        run: pnpm --filter ./backend lint
+
+      - name: Apply migrations to the test database
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://jobmatch:jobmatch@localhost:5433/jobmatch_test
+        run: pnpm drizzle-kit migrate
+
+      - name: Run unit and integration tests
+        run: pnpm test
+
+      - name: Type-check end-to-end specs
+        run: pnpm exec tsc --noEmit
+
+      # The test files are excluded from the build, so nothing else checks them.
+      - name: Type-check backend tests
+        working-directory: backend
+        run: pnpm exec tsc --noEmit -p tsconfig.test.json
+
+      - name: Build backend
+        run: pnpm --filter ./backend build

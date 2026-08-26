@@ -1,0 +1,469 @@
+export type Job = {
+  id: number;
+  slug: string;
+  title: string;
+  departmentId: number;
+  employmentType:
+    | "full_time"
+    | "part_time"
+    | "contract"
+    | "internship"
+    | "freelance";
+  location: string | null;
+  description: string | null;
+  salaryType: "fixed" | "range" | null;
+  currency: string | null;
+  payFrequency: string | null;
+  salaryFixed: string | null;
+  salaryMin: string | null;
+  salaryMax: string | null;
+  status: "draft" | "inactive" | "published" | "closed" | "archived";
+  createdBy: number;
+  createdAt: string;
+  updatedAt: string;
+  skills: string[];
+};
+
+export type PipelineStage = {
+  id: number;
+  jobId: number;
+  name: string;
+  position: number;
+  stageType: "screening" | "interview" | "offer";
+  sourceTemplateId: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type JobDetail = Job & {
+  pipelineStages: PipelineStage[];
+  hiringTeam: { id: number; jobId: number; userId: number; addedAt: string }[];
+};
+
+export type CurrentUser = {
+  id: number;
+  asgardeoUserId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  avatarUrl: string | null;
+  role: "super_admin" | "hiring_manager" | "interviewer";
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CustomQuestion = {
+  id: number;
+  jobId: number;
+  title: string;
+  questionType: "short_answer" | "long_answer" | "checkbox" | "radio";
+  isRequired: boolean;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+  options: {
+    id: number;
+    questionId: number;
+    label: string;
+    isCorrect: boolean;
+    position: number;
+  }[];
+};
+
+export type ChatMessage = {
+  id: number;
+  message: string | null;
+  senderId: number;
+  sentAt: string;
+  isSystemMessage: boolean;
+  senderName: string | null;
+  senderAvatar: string | null;
+};
+
+export type Department = {
+  id: number;
+  name: string;
+  companyId: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Company = {
+  id: number;
+  name: string;
+  email: string;
+  website: string | null;
+  phone: string | null;
+  address: string | null;
+  description: string | null;
+  logoUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AssessmentOption = {
+  id: number;
+  questionId: number;
+  label: string;
+  isCorrect: boolean;
+  position: number;
+};
+
+// Mirrors the `question_type` enum in the database.
+export type QuestionType =
+  | "short_answer"
+  | "long_answer"
+  | "checkbox"
+  | "radio"
+  | "multiple_choice";
+
+export type AssessmentQuestion = {
+  id: number;
+  assessmentId: number;
+  title: string;
+  description: string;
+  questionType: QuestionType;
+  points: number;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+  options?: AssessmentOption[];
+};
+
+export type Assessment = {
+  id: number;
+  title: string;
+  description: string | null;
+  timeLimit: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  questions?: AssessmentQuestion[];
+};
+
+export type JobAssessment = {
+  id: number;
+  jobId?: number;
+  assessmentId: number;
+  triggerStageId: number | null;
+  createdAt: string;
+};
+
+export type CandidateRejection = {
+  id: number;
+  candidateId: number;
+  jobId: number;
+  fromStageId: number | null;
+  rejectedBy: number | null;
+  reason: string | null;
+  internalNote: string | null;
+  templateId: number | null;
+  emailStatus: "not_sent" | "draft" | "sent";
+  sentAt: string | null;
+  rejectedAt: string;
+};
+
+export type InterviewTimeSlot = { datetime: string; selected: boolean };
+
+export type StageType = "screening" | "interview" | "offer";
+
+export type CandidateInterview = {
+  id: number;
+  candidateId: number;
+  stageId: number;
+  jobId: number;
+  eventName: string | null;
+  eventType: string | null;
+  meetingUrl: string | null;
+  bodyText: string | null;
+  status: string;
+  scheduledAt: string | null;
+  durationMinutes: number | null;
+  notes: string | null;
+  outcome: "pending" | "pass" | "fail";
+  timeSlots: InterviewTimeSlot[] | null;
+  publicToken: string | null;
+  googleEventId: string | null;
+  // Joined from the pipeline stage, not stored on the interview row.
+  stageType: StageType | null;
+  createdBy: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Candidate = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  resumeUrl: string | null;
+  jobId: number;
+  currentStageId: number | null;
+  status: "active" | "rejected" | "offered" | "hired" | "withdrawn";
+  appliedAt: string;
+  updatedAt: string;
+  stageName: string | null;
+  jobTitle: string | null;
+};
+
+/** Mirrors API `stageAutomation` on candidate stage move. */
+export type StageAutomationFlags = {
+  assessmentInvite?: "sent" | "skipped_active_invite";
+};
+
+export type AiSummary = {
+  quickSummary: string;
+  strengths: string[];
+  gaps: string[];
+  hiringSignal: string;
+  verdict: "strong_fit" | "moderate_fit" | "weak_fit" | "not_recommended";
+};
+
+export type CandidateCvAnalysisPayload = {
+  status: "pending" | "done" | "failed";
+  matchScore: number | null;
+  matchedSkills: string[] | null;
+  missingSkills: string[] | null;
+  scoreBreakdown: {
+    skills: number;
+    experience: number;
+    level: number;
+    certs: number;
+  } | null;
+  aiSummary: AiSummary | null;
+  errorMessage: string | null;
+  updatedAt: string;
+};
+
+export type CandidateDetail = Candidate & {
+  cvAnalysis: CandidateCvAnalysisPayload | null;
+  answers: {
+    id: number;
+    candidateId: number;
+    questionId: number;
+    questionTitle?: string | null;
+    answerText: string | null;
+    createdAt: string;
+  }[];
+  selections: {
+    id: number;
+    candidateId: number;
+    questionId: number;
+    questionTitle?: string | null;
+    optionId: number;
+    optionLabel?: string | null;
+    createdAt: string;
+  }[];
+  history: {
+    id: number;
+    candidateId: number;
+    stageId: number;
+    movedBy: number | null;
+    movedAt: string;
+  }[];
+  activities: CandidateActivity[];
+  offer: Offer | null;
+  rejections: CandidateRejection[];
+  interviews: CandidateInterview[];
+};
+
+export type User = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: "super_admin" | "hiring_manager" | "interviewer";
+  avatarUrl: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TemplateBodyBlock = {
+  type: "heading" | "text" | "button" | "image";
+  content: string;
+};
+
+// Email templates store a plain HTML string; event templates store a ContentBlock[]-style array.
+export type TemplateBody = TemplateBodyBlock[] | string;
+
+export type Template = {
+  id: number;
+  name: string;
+  type: "email" | "event";
+  subject: string;
+  bodyJson: TemplateBody;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Offer = {
+  id: number;
+  candidateId: number;
+  jobId: number;
+  templateId: number | null;
+  status: "draft" | "sent" | "viewed" | "accepted" | "declined" | "expired";
+  salary: number | string | null;
+  currency: string | null;
+  payFrequency?: "hourly" | "daily" | "weekly" | "monthly" | "yearly" | null;
+  employmentType:
+    | "full_time"
+    | "part_time"
+    | "contract"
+    | "internship"
+    | "freelance"
+    | null;
+  startDate: string | null;
+  expiryDate?: string | null;
+  reportingManager: string | null;
+  benefits: string | null;
+  offerLetterHtml: string | null;
+  renderedHtml?: string | null;
+  sentAt: string | null;
+  viewedAt: string | null;
+  acceptedAt: string | null;
+  declinedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// Payload shape for creating questions, as sent by the assessment builder.
+export type NewAssessmentQuestion = {
+  title: string;
+  description: string | null;
+  questionType: QuestionType;
+  points: number;
+  position: number;
+  options?: { label: string; isCorrect: boolean; position: number }[];
+};
+
+export type HiringTeamMembership = {
+  id: number;
+  jobId: number;
+  userId: number;
+  addedAt: string;
+};
+
+// The offer list and detail endpoints join the candidate and job rows.
+export type OfferWithRelations = Offer & {
+  candidate?: { firstName: string; lastName: string } | null;
+  job?: { id: number; title: string } | null;
+};
+
+export type InterviewListItem = {
+  id: number;
+  candidateId: number;
+  stageId: number;
+  jobId: number;
+  scheduledAt: string | null;
+  durationMinutes: number | null;
+  notes: string | null;
+  outcome: "pending" | "pass" | "fail";
+  status: string;
+  eventName: string | null;
+  eventType: string | null;
+  meetingUrl: string | null;
+  bodyText: string | null;
+  createdBy: number | null;
+  createdAt: string;
+  updatedAt: string;
+  candidateName: string;
+  candidateEmail: string | null;
+  jobTitle: string | null;
+  stageName: string | null;
+  stageType: string | null;
+};
+
+export type CandidateActivity = {
+  id: number;
+  candidateId: number;
+  jobId: number;
+  offerId: number | null;
+  stageId: number | null;
+  actorId: number | null;
+  eventType:
+    | "offer_created"
+    | "offer_updated"
+    | "offer_sent"
+    | "offer_viewed"
+    | "offer_accepted"
+    | "offer_declined"
+    | "candidate_hired";
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  stage?: {
+    id: number;
+    name: string;
+    stageType: "screening" | "interview" | "offer";
+  } | null;
+};
+
+export type PublicOfferView = {
+  id: number;
+  status: "draft" | "sent" | "viewed" | "accepted" | "declined" | "expired";
+  salary: number | string | null;
+  currency: string | null;
+  employmentType:
+    | "full_time"
+    | "part_time"
+    | "contract"
+    | "internship"
+    | "freelance"
+    | null;
+  startDate: string | null;
+  reportingManager: string | null;
+  benefits: string | null;
+  offerLetterHtml: string | null;
+  sentAt: string | null;
+  viewedAt: string | null;
+  acceptedAt: string | null;
+  declinedAt: string | null;
+  candidateName: string;
+  candidateEmail: string;
+  jobTitle: string;
+};
+
+export type AnalyticsReport = {
+  summary: {
+    totalCandidates: number;
+    totalCandidatesDeltaPct: number;
+    openPositions: number;
+    openPositionsDelta: number;
+    avgTimeToHireDays: number;
+    avgTimeToHireDeltaDays: number;
+    offerAcceptanceRate: number;
+    offerAcceptanceRateDeltaPct: number;
+  };
+  pipelineReport: {
+    stage: string;
+    current: number;
+    previous: number;
+  }[];
+  candidateVolume: {
+    date: string;
+    applications: number;
+    hires: number;
+  }[];
+  sourceOfCandidates: {
+    name: string;
+    value: number;
+  }[];
+  timeToHireByDepartment: {
+    dept: string;
+    days: number;
+  }[];
+  offerTrends: {
+    month: string;
+    sent: number;
+    accepted: number;
+  }[];
+};
+
+export type AnalyticsExportPayload = {
+  format: "csv" | "json";
+  fileName: string;
+  mimeType: string;
+  content: string;
+};
