@@ -1,9 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { SignInButton, SignIn } from "@asgardeo/nextjs";
+import { useAsgardeo } from "@asgardeo/nextjs";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Copy01Icon, CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
+import {
+  Copy01Icon,
+  CheckmarkCircle02Icon,
+  ShieldKeyIcon,
+  ArrowRight02Icon,
+  Login01Icon,
+} from "@hugeicons/core-free-icons";
 
 const DEMO_USERNAME = "demo@jobmatch-ai.dev";
 const DEMO_PASSWORD = "Demo@123#";
@@ -19,16 +25,16 @@ function CredentialRow({ label, value }: { label: string; value: string }) {
 
   return (
     <div className="flex items-center justify-between">
-      <span className="text-[14px] font-medium text-slate-600">{label}</span>
+      <span className="text-[13px] font-medium text-slate-500">{label}</span>
       <button
         type="button"
         onClick={handleCopy}
-        className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-slate-900 cursor-pointer hover:text-theme transition-colors"
+        className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-slate-800 cursor-pointer hover:text-teal-600 transition-colors"
       >
         {value}
         <HugeiconsIcon
           icon={copied ? CheckmarkCircle02Icon : Copy01Icon}
-          className={`size-4.5 ${copied ? "text-theme" : "text-slate-600"}`}
+          className={`size-4 ${copied ? "text-teal-600" : "text-slate-400"}`}
           strokeWidth={2}
         />
       </button>
@@ -37,34 +43,64 @@ function CredentialRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function LoginPage() {
-  return (
-    <div className="flex min-h-svh items-center justify-center p-6 md:p-8 bg-white">
-      <div className="w-full max-w-sm flex flex-col items-center gap-6">
-        <style jsx>{`
-          :global(.custom-signin h2) {
-            font-size: 0;
-          }
-          :global(.custom-signin h2::after) {
-            content: "Sign in to JobMatch AI";
-            font-size: 1.375rem;
-          }
-        `}</style>
-        <SignIn
-          size="small"
-          variant="outlined"
-          className="custom-signin"
-          onSuccess={() => {}}
-          onError={() => {}}
-        />
-      </div>
+  const { signIn } = useAsgardeo();
+  const [loading, setLoading] = useState(false);
 
-      <div className="fixed top-6 right-6 w-96 rounded-xl border border-theme/30 bg-theme/5 p-6">
-        <p className="text-[15px] font-semibold tracking-wider text-theme mb-3">
-          Demo credentials
-        </p>
-        <div className="flex flex-col gap-2">
-          <CredentialRow label="Username" value={DEMO_USERNAME} />
-          <CredentialRow label="Password" value={DEMO_PASSWORD} />
+  const handleSignIn = async () => {
+    setLoading(true);
+    try {
+      if (signIn) {
+        const res = await signIn();
+        const url = (res as any)?.signInUrl || (res as any)?.data?.signInUrl;
+        if (url && typeof url === "string") {
+          window.location.href = url;
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("Sign in error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-svh items-center justify-center p-6 md:p-8 bg-slate-50 relative">
+      <div className="w-full max-w-md bg-white p-8 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col gap-6">
+        <div className="flex flex-col items-center text-center gap-2">
+          <div className="p-3.5 bg-teal-50 text-teal-600 rounded-2xl mb-1">
+            <HugeiconsIcon icon={ShieldKeyIcon} className="size-8" strokeWidth={2} />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            Sign in to JobMatch AI
+          </h1>
+          <p className="text-xs text-slate-500 max-w-xs">
+            AI-powered job matching and recruitment platform authenticated via WSO2 Asgardeo SSO.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3 pt-2">
+          <button
+            type="button"
+            disabled={loading}
+            onClick={handleSignIn}
+            className="w-full py-3.5 px-5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-semibold text-sm rounded-2xl transition-all flex items-center justify-center gap-2.5 shadow-md shadow-teal-600/20 cursor-pointer disabled:opacity-50"
+          >
+            <HugeiconsIcon icon={Login01Icon} className="size-5" />
+            <span>{loading ? "Redirecting to Asgardeo..." : "Sign In with Asgardeo"}</span>
+            <HugeiconsIcon icon={ArrowRight02Icon} className="size-4 ml-auto" />
+          </button>
+        </div>
+
+        <div className="border-t border-slate-100 pt-5 flex flex-col gap-3">
+          <p className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+            <span className="inline-block size-2 rounded-full bg-teal-500" />
+            Demo User Credentials
+          </p>
+          <div className="flex flex-col gap-2.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+            <CredentialRow label="Username" value={DEMO_USERNAME} />
+            <CredentialRow label="Password" value={DEMO_PASSWORD} />
+          </div>
         </div>
       </div>
     </div>

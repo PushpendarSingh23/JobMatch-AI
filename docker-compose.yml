@@ -35,6 +35,34 @@ services:
     tmpfs:
       - /var/lib/postgresql/data
 
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: jobmatch-backend
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      DATABASE_URL: postgresql://jobmatch:jobmatch@postgres:5432/jobmatch
+      REDIS_URL: redis://redis:6379
+      FRONTEND_URL: http://localhost:3000
+      ASGARDEO_JWKS_URL: https://localhost/oauth2/jwks
+      ASGARDEO_ISSUER: https://localhost/oauth2/token
+      ENCRYPTION_KEY: secret-encryption-key-for-local-dev-32b
+      RESEND_API_KEY: re_mock_key
+      RESEND_FROM_EMAIL: onboarding@resend.dev
+      GEMINI_API_KEY: mock_gemini_key
+      R2_ENDPOINT: http://localhost:9000
+      R2_ACCESS_KEY_ID: minio
+      R2_SECRET_ACCESS_KEY: minio123
+      R2_BUCKET_NAME: jobmatch-resumes
+      R2_PUBLIC_URL: http://localhost:9000/jobmatch-resumes
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   redis-data:

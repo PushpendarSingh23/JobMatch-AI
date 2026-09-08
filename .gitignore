@@ -5,4 +5,9 @@ playwright/.cache/
 # Test coverage reports
 coverage/
 
+.env
+.env.local
+.env.production
+*.log
 backend/.env.test
+

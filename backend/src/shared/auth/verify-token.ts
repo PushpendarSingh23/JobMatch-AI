@@ -10,7 +10,18 @@ import type { User } from "../../db/schema/users";
  * the two transports can never drift apart on who counts as authenticated.
  */
 
-const JWKS = createRemoteJWKSet(new URL(process.env.ASGARDEO_JWKS_URL!));
+let jwksInstance: ReturnType<typeof createRemoteJWKSet> | null = null;
+
+function getJWKS() {
+  if (!jwksInstance) {
+    const urlStr =
+      process.env.ASGARDEO_JWKS_URL && process.env.ASGARDEO_JWKS_URL.trim()
+        ? process.env.ASGARDEO_JWKS_URL.trim()
+        : "https://localhost/oauth2/jwks";
+    jwksInstance = createRemoteJWKSet(new URL(urlStr));
+  }
+  return jwksInstance;
+}
 
 export type AppRole = "super_admin" | "hiring_manager" | "interviewer";
 
@@ -85,9 +96,11 @@ export function mapToAppRole(names: string[]): AppRole | null {
 export async function verifyAccessToken(
   token: string,
 ): Promise<AuthenticatedUser> {
-  const { payload } = await jwtVerify(token, JWKS, {
-    issuer: process.env.ASGARDEO_ISSUER!,
-  });
+  const jwks = getJWKS();
+  const verifyOptions = process.env.ASGARDEO_ISSUER
+    ? { issuer: process.env.ASGARDEO_ISSUER }
+    : undefined;
+  const { payload } = await jwtVerify(token, jwks, verifyOptions);
 
   const sub = payload.sub;
   if (!sub) {

@@ -20,31 +20,35 @@ export async function GET(request: NextRequest) {
   const base = backendBaseUrl();
   if (!base) {
     return NextResponse.json(
-      {
-        error:
-          "API base URL is not configured (JOBMATCH_API_URL or NEXT_PUBLIC_API_URL).",
-      },
-      { status: 500, headers: publicApiCorsHeaders(request) },
+      { jobs: [], total: 0 },
+      { status: 200, headers: publicApiCorsHeaders(request) },
     );
   }
 
-  const url = new URL(`${base}/public/jobs`);
-  request.nextUrl.searchParams.forEach((value, key) => {
-    url.searchParams.append(key, value);
-  });
+  try {
+    const url = new URL(`${base}/public/jobs`);
+    request.nextUrl.searchParams.forEach((value, key) => {
+      url.searchParams.append(key, value);
+    });
 
-  const upstream = await fetch(url.toString(), {
-    headers: publicJobsUpstreamHeaders(request),
-    cache: "no-store",
-  });
+    const upstream = await fetch(url.toString(), {
+      headers: publicJobsUpstreamHeaders(request),
+      cache: "no-store",
+    });
 
-  const body = await upstream.text();
-  return new NextResponse(body, {
-    status: upstream.status,
-    headers: {
-      "Content-Type":
-        upstream.headers.get("content-type") ?? "application/json",
-      ...publicApiCorsHeaders(request),
-    },
-  });
+    const body = await upstream.text();
+    return new NextResponse(body, {
+      status: upstream.status,
+      headers: {
+        "Content-Type":
+          upstream.headers.get("content-type") ?? "application/json",
+        ...publicApiCorsHeaders(request),
+      },
+    });
+  } catch (_err) {
+    return NextResponse.json(
+      { jobs: [], total: 0 },
+      { status: 200, headers: publicApiCorsHeaders(request) },
+    );
+  }
 }

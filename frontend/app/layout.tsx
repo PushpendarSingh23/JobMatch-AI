@@ -1,3 +1,4 @@
+import "@/lib/env-config";
 import type { Metadata } from "next";
 import { Changa_One, Geist, Geist_Mono, Public_Sans } from "next/font/google";
 import { AsgardeoProvider } from "@asgardeo/nextjs/server";
@@ -30,11 +31,18 @@ export const dynamic = "force-dynamic";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { ThemeInitializer } from "@/components/theme/theme-initializer";
 
-export default function RootLayout({
+import { headers } from "next/headers";
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headersList = await headers();
+  const host = headersList.get("host") || "localhost:3000";
+  const protocol = headersList.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+  const origin = `${protocol}://${host}/`;
+
   return (
     <html
       lang="en"
@@ -51,9 +59,12 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <ThemeInitializer />
-          <AsgardeoProvider>{children}</AsgardeoProvider>
+          <AsgardeoProvider afterSignInUrl={origin} afterSignOutUrl={`${origin}login`}>
+            {children}
+          </AsgardeoProvider>
         </ThemeProvider>
       </body>
     </html>
   );
 }
+

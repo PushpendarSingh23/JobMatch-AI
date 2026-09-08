@@ -1,3 +1,4 @@
+import "@/lib/env-config";
 import {
   asgardeoMiddleware,
   createRouteMatcher,
@@ -14,7 +15,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/public/*",
 ]);
 
-export const proxy = asgardeoMiddleware(
+export default asgardeoMiddleware(
   async (asgardeo, request) => {
     if (request.nextUrl.pathname === "/login" && asgardeo.isSignedIn()) {
       return NextResponse.redirect(new URL("/", request.url));

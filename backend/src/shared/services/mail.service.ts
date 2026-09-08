@@ -4,8 +4,17 @@ import logger from "../../utils/logger";
 
 dotenv.config();
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+let resendInstance: Resend | null = null;
+
+function getResendClient(): Resend | null {
+  if (!resendInstance) {
+    const key = process.env.RESEND_API_KEY;
+    if (key && key.trim()) {
+      resendInstance = new Resend(key.trim());
+    }
+  }
+  return resendInstance;
+}
 
 export interface SendEmailOptions {
   to: string;
@@ -81,8 +90,16 @@ function formatEmailTime(d: Date): string {
 
 export const mailService = {
   async sendEmail({ to, subject, html }: SendEmailOptions) {
+    const client = getResendClient();
+    if (!client) {
+      logger.warn(
+        `[mailService] RESEND_API_KEY is not configured. Skipping email send to ${to}`,
+      );
+      return { id: "mock-email-id" };
+    }
+    const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
     try {
-      const { data, error } = await resend.emails.send({
+      const { data, error } = await client.emails.send({
         from: `JobMatch AI <${FROM_EMAIL}>`,
         to: [to],
         subject,

@@ -33,7 +33,7 @@ export function getStatusStyle(status: string) {
 
 export function fmtSalary(offer: Offer): string {
   if (!offer.salary) return "—";
-  return `${offer.currency ?? ""} ${Number(offer.salary).toLocaleString()}`.trim();
+  return `${offer.currency ?? ""} ${Number(offer.salary).toLocaleString("en-US")}`.trim();
 }
 
 export function fmtDate(val: string | null): string {

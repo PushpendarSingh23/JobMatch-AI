@@ -5,22 +5,36 @@ import { candidateCvAnalysis, db } from "../../db";
 import { jobSkills, jobs } from "../../db";
 import logger from "../../utils/logger";
 
-const r2Client = new S3Client({
-  region: "us-east-1",
-  endpoint: process.env.R2_ENDPOINT!,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-  },
-  forcePathStyle: true,
-});
-
-if (!process.env.GEMINI_API_KEY) {
-  throw new Error("GEMINI_API_KEY environment variable is not set");
+let r2Instance: S3Client | null = null;
+function getR2Client(): S3Client {
+  if (!r2Instance) {
+    r2Instance = new S3Client({
+      region: "us-east-1",
+      endpoint: process.env.R2_ENDPOINT || "http://localhost:9000",
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID || "minio",
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "minio123",
+      },
+      forcePathStyle: true,
+    });
+  }
+  return r2Instance;
 }
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+let aiInstance: GoogleGenAI | null = null;
+function getGenAI(): GoogleGenAI {
+  if (!aiInstance) {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key || !key.trim()) {
+      throw new Error("GEMINI_API_KEY environment variable is not set");
+    }
+    aiInstance = new GoogleGenAI({ apiKey: key.trim() });
+  }
+  return aiInstance;
+}
 
 const GEMINI_TIMEOUT_MS = 30_000;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 type JobLevel =
   | "intern"
@@ -104,10 +118,10 @@ function extractKeyFromUrl(resumeUrl: string): string {
 // download pdf bytes from r2
 async function downloadPdfFromR2(objectKey: string): Promise<Buffer> {
   const command = new GetObjectCommand({
-    Bucket: process.env.R2_BUCKET_NAME!,
+    Bucket: process.env.R2_BUCKET_NAME || "jobmatch-resumes",
     Key: objectKey,
   });
-  const response = await r2Client.send(command);
+  const response = await getR2Client().send(command);
 
   if (!response.Body) {
     throw new Error(`empty response body for key : ${objectKey}`);
@@ -223,8 +237,8 @@ async function ParsedCvWithGemini(pdfBuffer: Buffer): Promise<ParsedCv> {
     "  - jobLevel: null",
   ].join("\n");
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+  const response = await getGenAI().models.generateContent({
+    model: GEMINI_MODEL,
     contents: [
       {
         text: prompt,
@@ -318,8 +332,8 @@ async function parseJdWithGemini(description: string): Promise<ParsedJd> {
     description,
   ].join("\n");
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+  const response = await getGenAI().models.generateContent({
+    model: GEMINI_MODEL,
     contents: [{ text: prompt }],
     config: { httpOptions: { timeout: GEMINI_TIMEOUT_MS } },
   });
@@ -466,8 +480,8 @@ async function generateAiSummary(
   ].join("\n");
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+    const response = await getGenAI().models.generateContent({
+      model: GEMINI_MODEL,
       contents: [{ text: prompt }],
       config: { httpOptions: { timeout: GEMINI_TIMEOUT_MS } },
     });
