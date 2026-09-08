@@ -59,7 +59,7 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <ThemeInitializer />
-          <AsgardeoProvider afterSignInUrl={origin} afterSignOutUrl={`${origin}login`}>
+          <AsgardeoProvider afterSignInUrl={origin} afterSignOutUrl={`${origin}login`} enablePKCE={true}>
             {children}
           </AsgardeoProvider>
         </ThemeProvider>

@@ -23,5 +23,8 @@ if (typeof process !== "undefined" && process.env) {
   if (!process.env.NEXT_PUBLIC_ASGARDEO_AFTER_SIGN_OUT_URL) {
     process.env.NEXT_PUBLIC_ASGARDEO_AFTER_SIGN_OUT_URL = "https://frontend-nine-omega-72.vercel.app/login";
   }
+  if (!process.env.NEXT_PUBLIC_ASGARDEO_ENABLE_PKCE) {
+    process.env.NEXT_PUBLIC_ASGARDEO_ENABLE_PKCE = "true";
+  }
 }
 
