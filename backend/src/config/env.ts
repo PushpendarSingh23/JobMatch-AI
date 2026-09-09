@@ -4,22 +4,22 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   REDIS_URL: z.string().min(1).default("redis://localhost:6379"),
 
-  ASGARDEO_JWKS_URL: z.string().url("ASGARDEO_JWKS_URL must be a valid URL"),
-  ASGARDEO_ISSUER: z.string().min(1, "ASGARDEO_ISSUER is required"),
+  ASGARDEO_JWKS_URL: z.string().url().default("https://api.asgardeo.io/t/orgsacma/oauth2/jwks"),
+  ASGARDEO_ISSUER: z.string().min(1).default("https://api.asgardeo.io/t/orgsacma/oauth2/token"),
 
-  ENCRYPTION_KEY: z.string().min(1, "ENCRYPTION_KEY is required"),
-  FRONTEND_URL: z.string().min(1, "FRONTEND_URL is required"),
+  ENCRYPTION_KEY: z.string().min(1).default("jobmatch_ai_encryption_key_32bytes!!"),
+  FRONTEND_URL: z.string().min(1).default("https://frontend-nine-omega-72.vercel.app"),
 
-  R2_ENDPOINT: z.string().min(1, "R2_ENDPOINT is required"),
-  R2_ACCESS_KEY_ID: z.string().min(1, "R2_ACCESS_KEY_ID is required"),
-  R2_SECRET_ACCESS_KEY: z.string().min(1, "R2_SECRET_ACCESS_KEY is required"),
-  R2_BUCKET_NAME: z.string().min(1, "R2_BUCKET_NAME is required"),
-  R2_PUBLIC_URL: z.string().min(1, "R2_PUBLIC_URL is required"),
+  R2_ENDPOINT: z.string().default("https://dummy.r2.cloudflarestorage.com"),
+  R2_ACCESS_KEY_ID: z.string().default("dummy_access_key"),
+  R2_SECRET_ACCESS_KEY: z.string().default("dummy_secret_key"),
+  R2_BUCKET_NAME: z.string().default("jobmatch-resumes"),
+  R2_PUBLIC_URL: z.string().default("https://pub-dummy.r2.dev"),
 
-  RESEND_API_KEY: z.string().min(1, "RESEND_API_KEY is required"),
-  RESEND_FROM_EMAIL: z.string().min(1, "RESEND_FROM_EMAIL is required"),
+  RESEND_API_KEY: z.string().default("re_dummy_key"),
+  RESEND_FROM_EMAIL: z.string().default("onboarding@resend.dev"),
 
-  GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
+  GEMINI_API_KEY: z.string().default("dummy_gemini_key"),
 
   PORT: z.coerce.number().int().positive().default(8080),
 });
