@@ -17,8 +17,17 @@ const isPublicRoute = createRouteMatcher([
 
 export default asgardeoMiddleware(
   async (asgardeo, request) => {
+    const hasCallbackParams =
+      request.nextUrl.searchParams.has("code") &&
+      request.nextUrl.searchParams.has("state");
+
     if (request.nextUrl.pathname === "/login" && asgardeo.isSignedIn()) {
       return NextResponse.redirect(new URL("/", request.url));
+    }
+
+    // Allow OAuth callback requests (containing code and state) to reach page component for code exchange
+    if (hasCallbackParams) {
+      return;
     }
 
     if (!isPublicRoute(request)) {
