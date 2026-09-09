@@ -6,7 +6,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: npm install && npx tsc
-    startCommand: npx drizzle-kit migrate && node dist/src/server.js
+    startCommand: node dist/src/db/migrate.js && node dist/src/server.js
     healthCheckPath: /health
     envVars:
       - key: PORT
