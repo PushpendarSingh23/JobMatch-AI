@@ -34,6 +34,7 @@ services:
     region: singapore
     plan: free
     maxmemoryPolicy: noeviction
+    ipAllowList: []
 
 databases:
   - name: jobmatch-db
