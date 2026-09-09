@@ -4,14 +4,52 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 
 async function runMigration() {
-  const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl) {
+  const rawDbUrl = process.env.DATABASE_URL;
+  if (!rawDbUrl) {
     console.error("[migrate] FATAL ERROR: DATABASE_URL is missing or undefined.");
     process.exit(1);
   }
 
+  const dbUrl = rawDbUrl.trim().replace(/^["']|["']$/g, "").trim();
+
   console.log("[migrate] Starting database migration using Drizzle migrator...");
-  const pool = new Pool({ connectionString: dbUrl, max: 1 });
+
+  // Safe diagnostic output (NO secrets/credentials/hosts exposed)
+  const hasWhitespace = /\s/.test(rawDbUrl);
+  const hasQuotes = /^["'].*["']$/.test(rawDbUrl.trim());
+  let protocol: string | null = null;
+  let hasHost = false;
+  let hasPath = false;
+  let isValid = false;
+
+  try {
+    const u = new URL(dbUrl);
+    protocol = u.protocol.replace(":", "");
+    hasHost = Boolean(u.hostname);
+    hasPath = Boolean(u.pathname && u.pathname.length > 1);
+    isValid = true;
+  } catch {
+    isValid = false;
+    const protoMatch = dbUrl.match(/^([a-zA-Z0-9+-]+):\/\//);
+    if (protoMatch) protocol = protoMatch[1];
+  }
+
+  console.log("--- SAFE DATABASE_URL DIAGNOSTICS ---");
+  console.log(`- DATABASE_URL present: true`);
+  console.log(`- Protocol detected: ${protocol ?? "none"}`);
+  console.log(`- Hostname present: ${hasHost}`);
+  console.log(`- Database name present: ${hasPath}`);
+  console.log(`- Whitespace detected: ${hasWhitespace}`);
+  console.log(`- Surrounding quotes detected: ${hasQuotes}`);
+  console.log(`- Standard URL parse successful: ${isValid}`);
+  console.log("-------------------------------------");
+
+  const isProduction = process.env.NODE_ENV === "production" || !!process.env.RENDER;
+  const pool = new Pool({
+    connectionString: dbUrl,
+    max: 1,
+    ssl: isProduction ? { rejectUnauthorized: false } : undefined,
+  });
 
   try {
     const db = drizzle(pool);
