@@ -20,9 +20,7 @@ services:
       - key: ENCRYPTION_KEY
         generateValue: true
       - key: DATABASE_URL
-        fromDatabase:
-          name: jobmatch-db
-          property: connectionString
+        sync: false
       - key: REDIS_URL
         fromService:
           type: redis
@@ -35,8 +33,3 @@ services:
     plan: free
     maxmemoryPolicy: noeviction
     ipAllowList: []
-
-databases:
-  - name: jobmatch-db
-    region: singapore
-    plan: free
