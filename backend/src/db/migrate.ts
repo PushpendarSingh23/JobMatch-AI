@@ -31,7 +31,7 @@ async function runMigration() {
   } catch {
     isValid = false;
     const protoMatch = dbUrl.match(/^([a-zA-Z0-9+-]+):\/\//);
-    if (protoMatch) protocol = protoMatch[1];
+    if (protoMatch && protoMatch[1]) protocol = protoMatch[1];
   }
 
   console.log("--- SAFE DATABASE_URL DIAGNOSTICS ---");
