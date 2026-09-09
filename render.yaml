@@ -7,6 +7,7 @@ services:
     rootDir: backend
     buildCommand: npm install && npx tsc
     startCommand: npx drizzle-kit migrate && node dist/src/server.js
+    healthCheckPath: /health
     envVars:
       - key: PORT
         value: 10000
@@ -28,10 +29,13 @@ services:
           name: jobmatch-redis
           property: connectionString
 
-databases:
-  - name: jobmatch-db
-    plan: free
-
   - type: redis
     name: jobmatch-redis
+    region: singapore
+    plan: free
+    maxmemoryPolicy: noeviction
+
+databases:
+  - name: jobmatch-db
+    region: singapore
     plan: free
