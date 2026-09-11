@@ -83,8 +83,17 @@ app.get("/health", async (req, res) => {
   }
 
   try {
-    const pong = await healthRedis.ping();
-    if (pong !== "PONG") checks.redis = "error";
+    if (healthRedis.status !== "ready") {
+      checks.redis = "error";
+    } else {
+      const pong = await Promise.race([
+        healthRedis.ping(),
+        new Promise<string>((_, reject) =>
+          setTimeout(() => reject(new Error("Redis ping timeout")), 1500),
+        ),
+      ]);
+      if (pong !== "PONG") checks.redis = "error";
+    }
   } catch (err) {
     checks.redis = "error";
     logger.error(

@@ -9,6 +9,8 @@
     "dev:backend": "pnpm --filter ./backend dev",
     "dev:frontend": "pnpm --filter ./frontend dev",
     "build": "pnpm --filter ./backend build && pnpm --filter ./frontend build",
+    "db:migrate": "pnpm --filter ./backend db:migrate",
+    "db:seed": "pnpm --filter ./backend db:seed",
     "lint": "pnpm --filter ./backend lint && pnpm --filter ./frontend lint",
     "test": "pnpm --filter ./backend test:run && pnpm --filter ./frontend test:run",
     "test:watch": "pnpm --filter ./backend test",

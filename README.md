@@ -145,7 +145,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8080
 ### Prerequisites
 - Node.js >= 22.0.0
 - pnpm >= 10.0.0 (`corepack enable`)
-- Docker & Docker Compose (optional for local Postgres & Redis)
+- PostgreSQL 16+ or Docker Compose
 
 ### Step 1: Clone Repository & Install Dependencies
 ```bash
@@ -153,30 +153,49 @@ git clone https://github.com/PushpendarSingh23/JobMatch-AI.git
 cd JobMatch-AI
 
 # Install monorepo dependencies
-npx pnpm install
+pnpm install
 ```
 
-### Step 2: Start Local Services (PostgreSQL & Redis)
+### Step 2: Configure Environment Variables
+Copy the example files and configure your local settings:
 ```bash
-docker-compose up -d postgres redis
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
 ```
 
-### Step 3: Run Database Migrations & Seed Data
+### Step 3: Start Local Database & Run Migrations
 ```bash
-# Apply migrations
-pnpm --filter ./backend exec drizzle-kit migrate
+# If using Docker:
+docker compose up -d postgres redis
 
-# (Optional) Seed sample data
-pnpm --filter ./backend exec tsx src/db/seed.ts
+# Apply database migrations
+pnpm db:migrate
+
+# Seed realistic development/demo data
+pnpm db:seed
 ```
 
-### Step 4: Start Backend & Frontend Concurrent Dev Servers
+#### 🌟 Realistic Demo Data Included in Seed
+Running `pnpm db:seed` populates a realistic, fully interactive recruiting environment:
+- **🏢 Company**: `TechFlow Innovations` (AI-first workflow & developer tooling company)
+- **🗂️ Departments (7)**: Engineering, Product Management, Design & UX, Data & AI Research, Sales & BD, Marketing & Growth, People & Culture
+- **👥 Users (5)**: Demo user (`demo@jobmatch-ai.dev`), Hiring Managers, and Interviewers
+- **💼 Jobs (20)**: Comprehensive roles with salary ranges, required skills, locations (Remote, Hybrid, On-site), and hiring teams
+- **👨‍💼 Candidates (35)**: Applications distributed across pipeline stages (Screening, Technical Assessment, Interviews, Offer Extended, Hired, Rejected)
+- **🧠 AI CV Analysis**: Realistic 0–100 match scores, skill overlap breakdowns, missing skills, and hiring recommendations
+- **📅 Interviews & Feedback**: Google Meet sessions, ratings, and interviewer notes
+- **📄 Offers & Activities**: Extended and accepted job offers with salary breakdown and timeline audit logs
+
+### Step 4: Start Backend & Frontend Dev Servers
 ```bash
+# Run both frontend and backend concurrently
 pnpm dev
 ```
-- Frontend will be live at: `http://localhost:3000`
-- Backend API will be live at: `http://localhost:8080`
-- Swagger API Docs available at: `http://localhost:8080/api-docs`
+- **Frontend**: [http://localhost:3000](http://localhost:3000)
+- **Public Careers Page**: [http://localhost:3000/careers](http://localhost:3000/careers)
+- **Backend API**: [http://localhost:8080](http://localhost:8080)
+- **Swagger API Docs**: [http://localhost:8080/api-docs](http://localhost:8080/api-docs)
+- **Health Check**: [http://localhost:8080/health](http://localhost:8080/health)
 
 ---
 

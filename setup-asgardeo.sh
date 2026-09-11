@@ -62,7 +62,9 @@ fi
 
 BASE_URL="https://api.asgardeo.io/t/${ASGARDEO_ORG}"
 APP_NAME="JobMatch AI"
-REDIRECT_URI="http://localhost:3000"
+CALLBACK_URLS='["http://localhost:3000/", "http://localhost:3000", "http://127.0.0.1:3000/", "http://127.0.0.1:3000", "https://frontend-nine-omega-72.vercel.app/", "https://frontend-nine-omega-72.vercel.app"]'
+ALLOWED_ORIGINS='["http://localhost:3000", "http://127.0.0.1:3000", "https://frontend-nine-omega-72.vercel.app"]'
+REDIRECT_URI="http://localhost:3000/"
 
 APP_TEMPLATE_ID="nextjs-application"
 
@@ -194,7 +196,7 @@ else
   CREATE_APP_PAYLOAD=$(jq -n \
     --arg name "$APP_NAME" \
     --arg templateId "$APP_TEMPLATE_ID" \
-    --arg redirectUri "$REDIRECT_URI" \
+    --argjson callbackUrls "$CALLBACK_URLS" \
     '{
       name: $name,
       description: "JobMatch AI local development application",
@@ -214,7 +216,7 @@ else
         oidc: {
           grantTypes: ["authorization_code"],
           publicClient: false,
-          callbackURLs: [$redirectUri]
+          callbackURLs: $callbackUrls
         }
       }
     }')
@@ -349,15 +351,16 @@ build_oidc_payload() {
   local include_attrs="$1"
   if [ -n "$OIDC_CURRENT" ]; then
     echo "$OIDC_CURRENT" | jq \
-      --arg redirectUri "$REDIRECT_URI" \
+      --argjson callbackUrls "$CALLBACK_URLS" \
+      --argjson allowedOrigins "$ALLOWED_ORIGINS" \
       --argjson includeAttrs "$include_attrs" \
       --argjson attrs "$ACCESS_TOKEN_ATTRS_JSON" \
       '
         del(.state)
         | .grantTypes = ["authorization_code", "client_credentials", "refresh_token"]
         | .publicClient = false
-        | .callbackURLs = [$redirectUri]
-        | .allowedOrigins = [$redirectUri]
+        | .callbackURLs = $callbackUrls
+        | .allowedOrigins = $allowedOrigins
         | .accessToken = ((.accessToken // {})
             | .type = "JWT"
             | .userAccessTokenExpiryInSeconds = 3600
@@ -366,12 +369,12 @@ build_oidc_payload() {
         | .refreshToken = ((.refreshToken // {}) | .renewRefreshToken = true)
       '
   else
-    jq -n --arg redirectUri "$REDIRECT_URI" --argjson includeAttrs "$include_attrs" --argjson attrs "$ACCESS_TOKEN_ATTRS_JSON" \
+    jq -n --argjson callbackUrls "$CALLBACK_URLS" --argjson allowedOrigins "$ALLOWED_ORIGINS" --argjson includeAttrs "$include_attrs" --argjson attrs "$ACCESS_TOKEN_ATTRS_JSON" \
       '{
         grantTypes: ["authorization_code", "client_credentials", "refresh_token"],
         publicClient: false,
-        callbackURLs: [$redirectUri],
-        allowedOrigins: [$redirectUri],
+        callbackURLs: $callbackUrls,
+        allowedOrigins: $allowedOrigins,
         accessToken: ({
           type: "JWT",
           userAccessTokenExpiryInSeconds: 3600,

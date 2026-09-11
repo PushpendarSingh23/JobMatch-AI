@@ -50,16 +50,10 @@ export default function LoginPage() {
     setLoading(true);
     try {
       if (signIn) {
-        const res = await signIn();
-        const url = (res as any)?.signInUrl || (res as any)?.data?.signInUrl;
-        if (url && typeof url === "string") {
-          window.location.href = url;
-          return;
-        }
+        await signIn();
       }
     } catch (err) {
       console.error("Sign in error:", err);
-    } finally {
       setLoading(false);
     }
   };

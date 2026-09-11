@@ -108,9 +108,10 @@ export async function verifyAccessToken(
   }
 
   // Role is the single source of truth from the JWT — never stored in DB.
-  const role = mapToAppRole(
-    collectRolesFromPayload(payload as Record<string, unknown>),
-  );
+  // In local development, fall back to super_admin so demo users without custom IdP claims can access all features.
+  const role =
+    mapToAppRole(collectRolesFromPayload(payload as Record<string, unknown>)) ??
+    (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test" ? "super_admin" : null);
 
   if (!role) {
     throw new AuthError(403, "No role assigned. Contact your administrator.");

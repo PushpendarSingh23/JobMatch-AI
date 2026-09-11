@@ -1,4 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("../../src/config/redis", () => ({
+  createRedisConnection: () => ({
+    status: "ready",
+    ping: async () => "PONG",
+    on: () => {},
+    subscribe: (_ch: string, cb?: (err: Error | null) => void) => cb?.(null),
+  }),
+}));
+
 import request from "supertest";
 import app from "../../src/app";
 
