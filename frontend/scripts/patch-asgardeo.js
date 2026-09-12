@@ -165,6 +165,18 @@ try {
   console.warn('[patch-asgardeo] Could not locate @asgardeo/javascript:', err.message);
 }
 
+// 8. server/actions/getClientOrigin.js - Respect NEXT_PUBLIC_APP_URL and x-forwarded-host
+patchFile(
+  path.join(asgardeoNextJsDir, 'server', 'actions', 'getClientOrigin.js'),
+  [
+    {
+      search: "const host = headersList.get('host');\n    const protocol = headersList.get('x-forwarded-proto') ?? 'http';\n    return `${protocol}://${host}`;",
+      replace: "if (process.env['NEXT_PUBLIC_APP_URL']) {\n        return process.env['NEXT_PUBLIC_APP_URL'].replace(/\\/$/, '');\n    }\n    const host = headersList.get('x-forwarded-host') || headersList.get('host');\n    const protocol = headersList.get('x-forwarded-proto') ?? 'https';\n    return `${protocol}://${host}`;"
+    }
+  ],
+  'server getClientOrigin.js (x-forwarded-host / NEXT_PUBLIC_APP_URL)'
+);
+
 console.log('[patch-asgardeo] All patches applied successfully.');
 
 

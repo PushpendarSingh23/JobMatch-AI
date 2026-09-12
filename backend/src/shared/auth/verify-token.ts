@@ -97,17 +97,28 @@ export async function verifyAccessToken(
   token: string,
 ): Promise<AuthenticatedUser> {
   const jwks = getJWKS();
-  const verifyOptions = process.env.ASGARDEO_ISSUER
-    ? { issuer: process.env.ASGARDEO_ISSUER }
+  const configuredIssuer = process.env.ASGARDEO_ISSUER?.trim();
+  const allowedIssuers = configuredIssuer
+    ? [
+        configuredIssuer,
+        configuredIssuer.replace(/\/oauth2\/token$/, ""),
+        configuredIssuer.replace(/\/$/, "") + "/oauth2/token",
+      ].filter((v, i, a) => a.indexOf(v) === i)
     : undefined;
-  const { payload } = await jwtVerify(token, jwks, verifyOptions);
+
+  const { payload } = await jwtVerify(token, jwks, {
+    ...(allowedIssuers ? { issuer: allowedIssuers } : {}),
+    clockTolerance: 60,
+  });
 
   const sub = payload.sub;
   if (!sub) {
     throw new AuthError(401, "Invalid token: missing sub claim");
   }
 
-  const email = payload["email"] as string | undefined;
+  const email =
+    (payload["email"] as string | undefined) ??
+    (payload["username"] as string | undefined);
   const firstName = (payload["given_name"] as string | undefined) ?? "Unknown";
   const lastName = (payload["family_name"] as string | undefined) ?? "User";
 

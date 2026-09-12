@@ -16,6 +16,10 @@ const getAuthContext = cache(async () => {
   if (!sessionId) throw new Error("Not authenticated");
   const token = await client.getAccessToken(sessionId);
 
+  if (!token) {
+    throw new Error("Not authenticated");
+  }
+
   const incomingHeaders = await headers();
   const forwardedHeaders: Record<string, string> = {};
 
