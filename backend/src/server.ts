@@ -19,7 +19,7 @@ subscribeToCvAnalysisEvents((event) => {
   socketService.emitCvAnalysisUpdate(event);
 });
 
-server.listen(PORT, () => {
-  logger.info(`JobMatch AI Backend running on port ${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+  logger.info(`JobMatch AI Backend running on port ${PORT} (0.0.0.0)`);
   logger.info(`Socket.io initialized and listening on the same port.`);
 });
