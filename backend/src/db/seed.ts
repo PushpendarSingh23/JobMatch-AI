@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { drizzle } from "drizzle-orm/node-postgres";
+import { eq, and } from "drizzle-orm";
 import { Pool } from "pg";
 import {
   users,
@@ -28,9 +29,11 @@ import {
 } from "./schema";
 import logger from "../utils/logger";
 
+const isProduction = process.env.NODE_ENV === "production" || !!process.env.RENDER;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL!,
   max: 1,
+  ssl: isProduction ? { rejectUnauthorized: false } : undefined,
 });
 const db = drizzle(pool);
 
@@ -110,6 +113,7 @@ async function seed() {
         firstName: "Sarah",
         lastName: "Jenkins",
         email: "demo@jobmatch-ai.dev",
+        role: "super_admin",
         avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
         isActive: true,
       },
@@ -118,6 +122,7 @@ async function seed() {
         firstName: "Marcus",
         lastName: "Chen",
         email: "marcus.chen@jobmatch-ai.dev",
+        role: "hiring_manager",
         avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
         isActive: true,
       },
@@ -126,6 +131,7 @@ async function seed() {
         firstName: "Elena",
         lastName: "Rostova",
         email: "elena.rostova@jobmatch-ai.dev",
+        role: "interviewer",
         avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
         isActive: true,
       },
@@ -134,6 +140,7 @@ async function seed() {
         firstName: "David",
         lastName: "Kim",
         email: "david.kim@jobmatch-ai.dev",
+        role: "interviewer",
         avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
         isActive: true,
       },
@@ -142,6 +149,7 @@ async function seed() {
         firstName: "Priya",
         lastName: "Patel",
         email: "priya.patel@jobmatch-ai.dev",
+        role: "interviewer",
         avatarUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150",
         isActive: true,
       },
@@ -1705,7 +1713,11 @@ async function seed() {
   // 10. Public Page Settings
   console.log("⚙️ Seeding public page settings...");
   await db.insert(pageSettings).values({
-    allowedOrigins: ["http://localhost:3000", "http://localhost:8080"],
+    allowedOrigins: [
+      "http://localhost:3000",
+      "http://localhost:8080",
+      "https://job-match-ai-frontend.vercel.app",
+    ],
   });
 
   console.log("\n==================================================");

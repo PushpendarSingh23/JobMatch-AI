@@ -15,6 +15,7 @@ export const users = pgTable("users", {
   firstName: varchar("first_name", { length: 100 }).notNull(),
   lastName: varchar("last_name", { length: 100 }).notNull(),
   email: varchar("email", { length: 255 }).notNull().unique(),
+  role: varchar("role", { length: 50 }).notNull().default("interviewer"),
   avatarUrl: varchar("avatar_url", { length: 1000 }),
   // set FALSE to deactivate without destroying historical records
   isActive: boolean("is_active").notNull().default(true),
@@ -22,5 +23,6 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export type AppRole = "super_admin" | "hiring_manager" | "interviewer";
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;

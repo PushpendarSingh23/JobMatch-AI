@@ -6,7 +6,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: npm install && npm run build
-    startCommand: node dist/src/db/migrate.js && node dist/src/server.js
+    startCommand: node dist/src/db/migrate.js && node dist/src/db/seed.js && node dist/src/server.js
     healthCheckPath: /health
     envVars:
       - key: PORT

@@ -60,6 +60,15 @@ async function runMigration() {
       migrationsSchema: "public",
       migrationsTable: "__drizzle_migrations",
     });
+
+    // Ensure role column exists on users table for RBAC
+    try {
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role varchar(50) DEFAULT 'interviewer' NOT NULL;`);
+      console.log("[migrate] ✅ Ensured users.role column exists.");
+    } catch (e: any) {
+      console.warn("[migrate] Note on users.role column check:", e?.message);
+    }
+
     console.log("[migrate] ✅ All database migrations applied successfully!");
     await pool.end();
     process.exit(0);

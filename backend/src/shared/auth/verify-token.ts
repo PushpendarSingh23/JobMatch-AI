@@ -107,16 +107,6 @@ export async function verifyAccessToken(
     throw new AuthError(401, "Invalid token: missing sub claim");
   }
 
-  // Role is the single source of truth from the JWT — never stored in DB.
-  // In local development, fall back to super_admin so demo users without custom IdP claims can access all features.
-  const role =
-    mapToAppRole(collectRolesFromPayload(payload as Record<string, unknown>)) ??
-    (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test" ? "super_admin" : null);
-
-  if (!role) {
-    throw new AuthError(403, "No role assigned. Contact your administrator.");
-  }
-
   const email = payload["email"] as string | undefined;
   const firstName = (payload["given_name"] as string | undefined) ?? "Unknown";
   const lastName = (payload["family_name"] as string | undefined) ?? "User";
@@ -125,16 +115,20 @@ export async function verifyAccessToken(
     throw new AuthError(403, "Token missing required email claim");
   }
 
+  // 1. Check if token contains explicit role claims from Asgardeo IdP
+  const tokenRole = mapToAppRole(
+    collectRolesFromPayload(payload as Record<string, unknown>),
+  );
+
+  // 2. Find user in database by stable Asgardeo user ID
   let [user] = await db
     .select()
     .from(users)
     .where(eq(users.asgardeoUserId, sub))
     .limit(1);
 
+  // 3. If not found by asgardeoUserId, safely reconcile onto existing pre-seeded record by email
   if (!user) {
-    // The `sub` can change for an existing account when the Asgardeo tenant
-    // or user is re-provisioned. Email is the stable identity, so reconcile
-    // onto the existing row instead of colliding with its unique constraint.
     [user] = await db
       .update(users)
       .set({ asgardeoUserId: sub, updatedAt: new Date() })
@@ -142,11 +136,18 @@ export async function verifyAccessToken(
       .returning();
   }
 
+  // 4. If genuinely new user (not in DB), provision a new record
   if (!user) {
-    // JIT provision — genuinely first login for this email
+    const initialRole = tokenRole ?? "interviewer";
     [user] = await db
       .insert(users)
-      .values({ asgardeoUserId: sub, firstName, lastName, email })
+      .values({
+        asgardeoUserId: sub,
+        firstName,
+        lastName,
+        email,
+        role: initialRole,
+      })
       .returning();
 
     if (!user) {
@@ -158,6 +159,21 @@ export async function verifyAccessToken(
     throw new AuthError(403, "User account is deactivated");
   }
 
-  // Role comes from JWT — DB row has no role column
-  return { ...user, role };
+  // 5. If Asgardeo token explicitly provided a role, synchronize it to DB if changed
+  if (tokenRole && user.role !== tokenRole) {
+    const [updatedUser] = await db
+      .update(users)
+      .set({ role: tokenRole, updatedAt: new Date() })
+      .where(eq(users.id, user.id))
+      .returning();
+    if (updatedUser) user = updatedUser;
+  }
+
+  // 6. Enforce database role for authorization
+  const effectiveRole = (user.role || tokenRole) as AppRole;
+  if (!effectiveRole) {
+    throw new AuthError(403, "No role assigned in database or token. Contact your administrator.");
+  }
+
+  return { ...user, role: effectiveRole };
 }
