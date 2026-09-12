@@ -29,9 +29,15 @@ import {
 } from "./schema";
 import logger from "../utils/logger";
 
+const rawDbUrl = process.env.DATABASE_URL;
+if (!rawDbUrl) {
+  console.error("[seed] FATAL ERROR: DATABASE_URL is missing or undefined.");
+  process.exit(1);
+}
+const dbUrl = rawDbUrl.trim().replace(/^["']|["']$/g, "").trim();
 const isProduction = process.env.NODE_ENV === "production" || !!process.env.RENDER;
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL!,
+  connectionString: dbUrl,
   max: 1,
   ssl: isProduction ? { rejectUnauthorized: false } : undefined,
 });
@@ -42,31 +48,17 @@ async function seed() {
   console.log("🌱 STARTING COMPREHENSIVE JOBMATCH AI DATABASE SEED");
   console.log("==================================================\n");
 
-  // 1. Clean existing records in dependency order for clean idempotency
-  console.log("🧹 Clearing previous seed data...");
-  await db.delete(candidateActivities);
-  await db.delete(candidateRejections);
-  await db.delete(interviewFeedback);
-  await db.delete(candidateInterviews);
-  await db.delete(candidateAssessmentAttempts);
-  await db.delete(candidateCvAnalysis);
-  await db.delete(candidateStageHistory);
-  await db.delete(offers);
-  await db.delete(candidates);
-  await db.delete(jobAssessmentAttachments);
-  await db.delete(jobHiringTeam);
-  await db.delete(jobPipelineStages);
-  await db.delete(jobSkills);
-  await db.delete(jobs);
-  await db.delete(assessmentQuestionOptions);
-  await db.delete(assessmentQuestions);
-  await db.delete(assessments);
-  await db.delete(templates);
-  await db.delete(departments);
-  await db.delete(company);
-  await db.delete(users);
-  await db.delete(pipelineStageTemplates);
-  await db.delete(pageSettings);
+  // 1. Check if database already has core seed data (Idempotency check)
+  try {
+    const existingCompany = await db.select().from(company).limit(1);
+    if (existingCompany.length > 0) {
+      console.log("ℹ️ [seed] Database already contains seed data. Skipping seed to protect existing records.");
+      await pool.end();
+      process.exit(0);
+    }
+  } catch (err: any) {
+    console.warn("⚠️ [seed] Note on initial company check:", err?.message);
+  }
 
   // 2. Company Info
   console.log("🏢 Seeding company and departments...");
