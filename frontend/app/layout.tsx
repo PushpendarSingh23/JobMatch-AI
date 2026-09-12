@@ -59,7 +59,13 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <ThemeInitializer />
-          <AsgardeoProvider afterSignInUrl={origin} afterSignOutUrl={`${origin}login`}>
+          <AsgardeoProvider
+            baseUrl={process.env.NEXT_PUBLIC_ASGARDEO_BASE_URL || "https://api.asgardeo.io/t/orgsacma"}
+            clientId={process.env.NEXT_PUBLIC_ASGARDEO_CLIENT_ID || "WKFedTcIAdrjVtWCsyYeorGYp6oa"}
+            organizationHandle="orgsacma"
+            afterSignInUrl={origin}
+            afterSignOutUrl={`${origin}login`}
+          >
             {children}
           </AsgardeoProvider>
         </ThemeProvider>

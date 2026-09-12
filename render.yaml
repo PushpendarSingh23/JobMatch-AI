@@ -12,7 +12,7 @@ services:
       - key: PORT
         value: 10000
       - key: FRONTEND_URL
-        value: https://frontend-nine-omega-72.vercel.app
+        value: https://job-match-ai-frontend.vercel.app
       - key: ASGARDEO_JWKS_URL
         value: https://api.asgardeo.io/t/orgsacma/oauth2/jwks
       - key: ASGARDEO_ISSUER
