@@ -55,16 +55,24 @@ patchFile(
   'AsgardeoNextClient.js (enablePKCE)'
 );
 
-// 2. utils/decorateConfigWithNextEnv.js - Pass enablePKCE
+// 2. utils/decorateConfigWithNextEnv.js - Pass enablePKCE and fallback defaults
 patchFile(
   path.join(asgardeoNextJsDir, 'utils', 'decorateConfigWithNextEnv.js'),
   [
     {
       search: "signUpUrl: signUpUrl || process.env['NEXT_PUBLIC_ASGARDEO_SIGN_UP_URL'],",
       replace: "signUpUrl: signUpUrl || process.env['NEXT_PUBLIC_ASGARDEO_SIGN_UP_URL'],\n        enablePKCE: config.enablePKCE ?? (process.env['NEXT_PUBLIC_ASGARDEO_ENABLE_PKCE'] !== 'false'),"
+    },
+    {
+      search: "clientId: clientId || process.env['NEXT_PUBLIC_ASGARDEO_CLIENT_ID'],",
+      replace: "clientId: clientId || process.env['NEXT_PUBLIC_ASGARDEO_CLIENT_ID'] || process.env['ASGARDEO_CLIENT_ID'] || 'WKFedTcIAdrjVtWCsyYeorGYp6oa',"
+    },
+    {
+      search: "baseUrl: baseUrl || process.env['NEXT_PUBLIC_ASGARDEO_BASE_URL'],",
+      replace: "baseUrl: baseUrl || process.env['NEXT_PUBLIC_ASGARDEO_BASE_URL'] || 'https://api.asgardeo.io/t/orgsacma',"
     }
   ],
-  'decorateConfigWithNextEnv.js (enablePKCE)'
+  'decorateConfigWithNextEnv.js (enablePKCE & fallback defaults)'
 );
 
 // 3. server/actions/signInAction.js - Include sessionId in state correlation & client init fallback
