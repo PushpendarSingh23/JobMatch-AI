@@ -26,6 +26,7 @@ import {
   candidateActivities,
   candidateRejections,
   pageSettings,
+  ContentBlock,
 } from "./schema";
 import logger from "../utils/logger";
 
@@ -48,36 +49,32 @@ async function seed() {
   console.log("🌱 STARTING COMPREHENSIVE JOBMATCH AI DATABASE SEED");
   console.log("==================================================\n");
 
-  // 1. Check if database already has core seed data (Idempotency check)
-  try {
-    const existingCompany = await db.select().from(company).limit(1);
-    if (existingCompany.length > 0) {
-      console.log("ℹ️ [seed] Database already contains seed data. Skipping seed to protect existing records.");
-      await pool.end();
-      process.exit(0);
-    }
-  } catch (err: any) {
-    console.warn("⚠️ [seed] Note on initial company check:", err?.message);
+  // 1. Company Info (Idempotent: find or insert)
+  console.log("🏢 Seeding company and departments...");
+  const existingCompanies = await db.select().from(company).limit(1);
+  let techflow: typeof company.$inferSelect;
+  if (existingCompanies.length > 0) {
+    techflow = existingCompanies[0]!;
+    console.log(`- Using existing company: ${techflow.name} (id: ${techflow.id})`);
+  } else {
+    const insertedCompany = await db
+      .insert(company)
+      .values({
+        name: "TechFlow Innovations",
+        email: "talent@techflow.ai",
+        website: "https://techflow.ai",
+        phone: "+1 (415) 890-4321",
+        address: "100 Montgomery St, Suite 1500, San Francisco, CA 94104",
+        description:
+          "TechFlow Innovations is an AI-first cloud enterprise company building next-generation workflow automation, intelligent developer tooling, and collaborative software.",
+        logoUrl: "/assets/jobmatch-logo.svg",
+      })
+      .returning();
+    techflow = insertedCompany[0]!;
+    console.log(`- Created company: ${techflow.name} (id: ${techflow.id})`);
   }
 
-  // 2. Company Info
-  console.log("🏢 Seeding company and departments...");
-  const insertedCompany = await db
-    .insert(company)
-    .values({
-      name: "TechFlow Innovations",
-      email: "talent@techflow.ai",
-      website: "https://techflow.ai",
-      phone: "+1 (415) 890-4321",
-      address: "100 Montgomery St, Suite 1500, San Francisco, CA 94104",
-      description:
-        "TechFlow Innovations is an AI-first cloud enterprise company building next-generation workflow automation, intelligent developer tooling, and collaborative software.",
-      logoUrl: "/assets/jobmatch-logo.svg",
-    })
-    .returning();
-  const techflow = insertedCompany[0]!;
-
-  // 3. Departments
+  // 2. Departments (Idempotent: find or insert)
   const deptNames = [
     "Engineering",
     "Product Management",
@@ -87,74 +84,94 @@ async function seed() {
     "Marketing & Growth",
     "People & Culture",
   ];
-  const insertedDepts = await db
-    .insert(departments)
-    .values(deptNames.map((name) => ({ companyId: techflow.id, name })))
-    .returning();
-
+  const existingDepts = await db.select().from(departments).where(eq(departments.companyId, techflow.id));
   const deptMap = new Map<string, number>();
-  insertedDepts.forEach((d) => deptMap.set(d.name, d.id));
+  existingDepts.forEach((d) => deptMap.set(d.name, d.id));
 
-  // 4. Users (Demo user + hiring team)
+  for (const name of deptNames) {
+    if (!deptMap.has(name)) {
+      const ins = await db.insert(departments).values({ companyId: techflow.id, name }).returning();
+      deptMap.set(name, ins[0]!.id);
+    }
+  }
+  console.log(`- Resolved ${deptMap.size} departments.`);
+
+  // 3. Users (Demo user + hiring team) (Idempotent: find or insert)
   console.log("👥 Seeding users & hiring team...");
-  const seededUsers = await db
-    .insert(users)
-    .values([
-      {
-        asgardeoUserId: "demo-asgardeo-sub-id",
-        firstName: "Sarah",
-        lastName: "Jenkins",
-        email: "demo@jobmatch-ai.dev",
-        role: "super_admin",
-        avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
-        isActive: true,
-      },
-      {
-        asgardeoUserId: "marcus-asgardeo-sub-id",
-        firstName: "Marcus",
-        lastName: "Chen",
-        email: "marcus.chen@jobmatch-ai.dev",
-        role: "hiring_manager",
-        avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
-        isActive: true,
-      },
-      {
-        asgardeoUserId: "elena-asgardeo-sub-id",
-        firstName: "Elena",
-        lastName: "Rostova",
-        email: "elena.rostova@jobmatch-ai.dev",
-        role: "interviewer",
-        avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-        isActive: true,
-      },
-      {
-        asgardeoUserId: "david-asgardeo-sub-id",
-        firstName: "David",
-        lastName: "Kim",
-        email: "david.kim@jobmatch-ai.dev",
-        role: "interviewer",
-        avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
-        isActive: true,
-      },
-      {
-        asgardeoUserId: "priya-asgardeo-sub-id",
-        firstName: "Priya",
-        lastName: "Patel",
-        email: "priya.patel@jobmatch-ai.dev",
-        role: "interviewer",
-        avatarUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150",
-        isActive: true,
-      },
-    ])
-    .returning();
+  const usersToSeed = [
+    {
+      asgardeoUserId: "demo-asgardeo-sub-id",
+      firstName: "Sarah",
+      lastName: "Jenkins",
+      email: "demo@jobmatch-ai.dev",
+      role: "super_admin" as const,
+      avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
+      isActive: true,
+    },
+    {
+      asgardeoUserId: "marcus-asgardeo-sub-id",
+      firstName: "Marcus",
+      lastName: "Chen",
+      email: "marcus.chen@jobmatch-ai.dev",
+      role: "hiring_manager" as const,
+      avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
+      isActive: true,
+    },
+    {
+      asgardeoUserId: "elena-asgardeo-sub-id",
+      firstName: "Elena",
+      lastName: "Rostova",
+      email: "elena.rostova@jobmatch-ai.dev",
+      role: "interviewer" as const,
+      avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+      isActive: true,
+    },
+    {
+      asgardeoUserId: "david-asgardeo-sub-id",
+      firstName: "David",
+      lastName: "Kim",
+      email: "david.kim@jobmatch-ai.dev",
+      role: "interviewer" as const,
+      avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
+      isActive: true,
+    },
+    {
+      asgardeoUserId: "priya-asgardeo-sub-id",
+      firstName: "Priya",
+      lastName: "Patel",
+      email: "priya.patel@jobmatch-ai.dev",
+      role: "interviewer" as const,
+      avatarUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150",
+      isActive: true,
+    },
+  ];
 
-  const primaryUser = seededUsers[0]!;
-  const marcus = seededUsers[1]!;
-  const elena = seededUsers[2]!;
-  const david = seededUsers[3]!;
-  const priya = seededUsers[4]!;
+  const existingUsers = await db.select().from(users);
+  const userMap = new Map<string, typeof users.$inferSelect>();
+  existingUsers.forEach((u) => userMap.set(u.email.toLowerCase(), u));
 
-  // 5. Pipeline Stage Templates
+  for (const uData of usersToSeed) {
+    const existing = userMap.get(uData.email.toLowerCase());
+    if (existing) {
+      if (uData.email === "demo@jobmatch-ai.dev" && existing.role !== "super_admin") {
+        await db.update(users).set({ role: "super_admin" }).where(eq(users.id, existing.id));
+        existing.role = "super_admin";
+      }
+      userMap.set(uData.email.toLowerCase(), existing);
+    } else {
+      const ins = await db.insert(users).values(uData).returning();
+      userMap.set(uData.email.toLowerCase(), ins[0]!);
+    }
+  }
+
+  const primaryUser = userMap.get("demo@jobmatch-ai.dev")!;
+  const marcus = userMap.get("marcus.chen@jobmatch-ai.dev")!;
+  const elena = userMap.get("elena.rostova@jobmatch-ai.dev")!;
+  const david = userMap.get("david.kim@jobmatch-ai.dev")!;
+  const priya = userMap.get("priya.patel@jobmatch-ai.dev")!;
+  console.log(`- Resolved ${userMap.size} users.`);
+
+  // 4. Pipeline Stage Templates (Idempotent: find or insert)
   console.log("📋 Seeding pipeline stage templates...");
   const stageTemplateData = [
     { name: "Screening", position: 1, stageType: "screening" as const, isDeletable: false },
@@ -165,126 +182,166 @@ async function seed() {
     { name: "Offer Extended", position: 6, stageType: "offer" as const, isDeletable: false },
     { name: "Hired", position: 7, stageType: "offer" as const, isDeletable: false },
   ];
-  const stageTemplates = await db.insert(pipelineStageTemplates).values(stageTemplateData).returning();
 
-  // 6. Templates (Email & Event)
+  const existingStageTemplates = await db.select().from(pipelineStageTemplates);
+  const stageTemplateMap = new Map<string, typeof pipelineStageTemplates.$inferSelect>();
+  existingStageTemplates.forEach((st) => stageTemplateMap.set(st.name, st));
+
+  for (const stData of stageTemplateData) {
+    if (!stageTemplateMap.has(stData.name)) {
+      const ins = await db.insert(pipelineStageTemplates).values(stData).returning();
+      stageTemplateMap.set(stData.name, ins[0]!);
+    }
+  }
+  const stageTemplates = Array.from(stageTemplateMap.values()).sort((a, b) => a.position - b.position);
+
+  // 5. Templates (Email & Event) (Idempotent: find or insert)
   console.log("✉️ Seeding email and event templates...");
-  const insertedTemplates = await db
-    .insert(templates)
-    .values([
-      {
-        name: "Formal Employment Offer Letter",
-        type: "email",
-        subject: "Offer of Employment with TechFlow Innovations",
-        bodyJson: `<div style="font-family:sans-serif;color:#1e293b;line-height:1.6">
-          <h2>Congratulations on your offer!</h2>
-          <p>Dear {{candidate_name}},</p>
-          <p>We are delighted to extend an offer for the position of <strong>{{job_title}}</strong> at TechFlow Innovations.</p>
-          <p>We were thoroughly impressed with your technical skills, leadership experience, and cultural alignment throughout the interview process.</p>
-          <ul>
-            <li><strong>Starting Compensation:</strong> {{salary}} {{currency}} per year</li>
-            <li><strong>Employment Type:</strong> Full-time</li>
-            <li><strong>Anticipated Start Date:</strong> {{start_date}}</li>
-          </ul>
-          <p>Please review and sign the formal agreement below.</p>
-        </div>`,
-        createdBy: primaryUser.id,
-      },
-      {
-        name: "Application Received Confirmation",
-        type: "email",
-        subject: "Thank you for applying to TechFlow Innovations",
-        bodyJson: `<p>Dear {{candidate_name}},</p><p>Thank you for submitting your application for {{job_title}}. Our hiring team is currently reviewing your background and will reach out shortly.</p>`,
-        createdBy: primaryUser.id,
-      },
-      {
-        name: "Respectful Candidate Rejection",
-        type: "email",
-        subject: "Update on your application with TechFlow Innovations",
-        bodyJson: `<p>Dear {{candidate_name}},</p><p>Thank you for the time and effort you invested in meeting with our team for {{job_title}}. While we were very impressed by your background, we have chosen to move forward with another candidate whose experience more closely aligns with our immediate requirements.</p>`,
-        createdBy: primaryUser.id,
-      },
-      {
-        name: "Round 1 - Technical Architecture Discussion",
-        type: "event",
-        subject: "Technical Deep-Dive & System Architecture Interview",
-        bodyJson: [
-          { type: "heading", content: "Technical Deep Dive (60 mins)" },
-          { type: "text", content: "Agenda: System design, concurrency patterns, and live problem solving." },
-          { type: "divider" },
-          { type: "text", content: "Meeting will be hosted via Google Meet." },
-        ],
-        createdBy: primaryUser.id,
-      },
-    ])
-    .returning();
+  const eventBlocks: ContentBlock[] = [
+    { type: "heading", content: "Technical Deep Dive (60 mins)" },
+    { type: "text", content: "Agenda: System design, concurrency patterns, and live problem solving." },
+    { type: "divider" },
+    { type: "text", content: "Meeting will be hosted via Google Meet." },
+  ];
 
-  const offerTemplate = insertedTemplates[0]!;
-  const appReceivedTemplate = insertedTemplates[1]!;
-  const rejectionTemplate = insertedTemplates[2]!;
+  const templatesToSeed: (typeof templates.$inferInsert)[] = [
+    {
+      name: "Formal Employment Offer Letter",
+      type: "email",
+      subject: "Offer of Employment with TechFlow Innovations",
+      bodyJson: `<div style="font-family:sans-serif;color:#1e293b;line-height:1.6">
+        <h2>Congratulations on your offer!</h2>
+        <p>Dear {{candidate_name}},</p>
+        <p>We are delighted to extend an offer for the position of <strong>{{job_title}}</strong> at TechFlow Innovations.</p>
+        <p>We were thoroughly impressed with your technical skills, leadership experience, and cultural alignment throughout the interview process.</p>
+        <ul>
+          <li><strong>Starting Compensation:</strong> {{salary}} {{currency}} per year</li>
+          <li><strong>Employment Type:</strong> Full-time</li>
+          <li><strong>Anticipated Start Date:</strong> {{start_date}}</li>
+        </ul>
+        <p>Please review and sign the formal agreement below.</p>
+      </div>`,
+      createdBy: primaryUser.id,
+    },
+    {
+      name: "Application Received Confirmation",
+      type: "email",
+      subject: "Thank you for applying to TechFlow Innovations",
+      bodyJson: `<p>Dear {{candidate_name}},</p><p>Thank you for submitting your application for {{job_title}}. Our hiring team is currently reviewing your background and will reach out shortly.</p>`,
+      createdBy: primaryUser.id,
+    },
+    {
+      name: "Respectful Candidate Rejection",
+      type: "email",
+      subject: "Update on your application with TechFlow Innovations",
+      bodyJson: `<p>Dear {{candidate_name}},</p><p>Thank you for the time and effort you invested in meeting with our team for {{job_title}}. While we were very impressed by your background, we have chosen to move forward with another candidate whose experience more closely aligns with our immediate requirements.</p>`,
+      createdBy: primaryUser.id,
+    },
+    {
+      name: "Round 1 - Technical Architecture Discussion",
+      type: "event",
+      subject: "Technical Deep-Dive & System Architecture Interview",
+      bodyJson: eventBlocks,
+      createdBy: primaryUser.id,
+    },
+  ];
 
-  // 7. Assessments
+  const existingTemplates = await db.select().from(templates);
+  const templateMap = new Map<string, typeof templates.$inferSelect>();
+  existingTemplates.forEach((t) => templateMap.set(t.name, t));
+
+  for (const tData of templatesToSeed) {
+    if (!templateMap.has(tData.name)) {
+      const ins = await db.insert(templates).values(tData).returning();
+      templateMap.set(tData.name, ins[0]!);
+    }
+  }
+
+  const offerTemplate = templateMap.get("Formal Employment Offer Letter")!;
+  const appReceivedTemplate = templateMap.get("Application Received Confirmation")!;
+  const rejectionTemplate = templateMap.get("Respectful Candidate Rejection")!;
+
+  // 6. Assessments (Idempotent: find or insert)
   console.log("📝 Seeding technical & design assessments...");
-  const insertedAssessments = await db
-    .insert(assessments)
-    .values([
-      {
-        title: "Full-Stack Senior TypeScript & React Assessment",
-        description: "Comprehensive evaluation of React Server Components, TypeScript type systems, Node.js concurrency, and SQL optimization.",
-        timeLimit: 45,
-        createdBy: primaryUser.id,
-      },
-      {
-        title: "AI & Machine Learning Engineering Evaluation",
-        description: "In-depth questions covering RAG architectures, vector embeddings, fine-tuning heuristics, and low-latency LLM serving.",
-        timeLimit: 60,
-        createdBy: primaryUser.id,
-      },
-      {
-        title: "Product Design & Design Systems Assessment",
-        description: "Design system scalability, accessible tokens, WCAG 2.1 AA compliance, and cross-platform responsive patterns.",
-        timeLimit: 30,
-        createdBy: primaryUser.id,
-      },
-    ])
-    .returning();
+  const assessmentsToSeed = [
+    {
+      title: "Full-Stack Senior TypeScript & React Assessment",
+      description: "Comprehensive evaluation of React Server Components, TypeScript type systems, Node.js concurrency, and SQL optimization.",
+      timeLimit: 45,
+      createdBy: primaryUser.id,
+    },
+    {
+      title: "AI & Machine Learning Engineering Evaluation",
+      description: "In-depth questions covering RAG architectures, vector embeddings, fine-tuning heuristics, and low-latency LLM serving.",
+      timeLimit: 60,
+      createdBy: primaryUser.id,
+    },
+    {
+      title: "Product Design & Design Systems Assessment",
+      description: "Design system scalability, accessible tokens, WCAG 2.1 AA compliance, and cross-platform responsive patterns.",
+      timeLimit: 30,
+      createdBy: primaryUser.id,
+    },
+  ];
 
-  const fsAssessment = insertedAssessments[0]!;
-  const aiAssessment = insertedAssessments[1]!;
-  const uxAssessment = insertedAssessments[2]!;
+  const existingAssessments = await db.select().from(assessments);
+  const assessmentMap = new Map<string, typeof assessments.$inferSelect>();
+  existingAssessments.forEach((a) => assessmentMap.set(a.title, a));
 
-  // Assessment Questions & Options
-  const q1 = await db.insert(assessmentQuestions).values({
-    assessmentId: fsAssessment.id,
-    title: "How do React Server Components (RSC) handle client-side interactivity?",
-    description: "Explain the boundary between Server Components and Client Components.",
-    questionType: "multiple_choice",
-    points: 10,
-    position: 1,
-  }).returning();
-  const q1Record = q1[0]!;
+  for (const aData of assessmentsToSeed) {
+    if (!assessmentMap.has(aData.title)) {
+      const ins = await db.insert(assessments).values(aData).returning();
+      assessmentMap.set(aData.title, ins[0]!);
+    }
+  }
 
-  await db.insert(assessmentQuestionOptions).values([
-    { questionId: q1Record.id, label: "Server components can import 'use client' components directly as leaves", isCorrect: true, position: 1 },
-    { questionId: q1Record.id, label: "Server components can use useState and useEffect hooks", isCorrect: false, position: 2 },
-    { questionId: q1Record.id, label: "All JavaScript bundles are shipped to the client regardless of directive", isCorrect: false, position: 3 },
-  ]);
+  const fsAssessment = assessmentMap.get("Full-Stack Senior TypeScript & React Assessment")!;
+  const aiAssessment = assessmentMap.get("AI & Machine Learning Engineering Evaluation")!;
+  const uxAssessment = assessmentMap.get("Product Design & Design Systems Assessment")!;
 
-  const q2 = await db.insert(assessmentQuestions).values({
-    assessmentId: fsAssessment.id,
-    title: "Which index type is best suited for PostgreSQL full-text search queries?",
-    description: "Selecting the optimal index for tsvector and search queries.",
-    questionType: "multiple_choice",
-    points: 10,
-    position: 2,
-  }).returning();
-  const q2Record = q2[0]!;
+  // Assessment Questions & Options (Idempotent: check by question title)
+  const existingFsQuestions = await db
+    .select()
+    .from(assessmentQuestions)
+    .where(eq(assessmentQuestions.assessmentId, fsAssessment.id));
+  const fsQuestionMap = new Map<string, typeof assessmentQuestions.$inferSelect>();
+  existingFsQuestions.forEach((q) => fsQuestionMap.set(q.title, q));
 
-  await db.insert(assessmentQuestionOptions).values([
-    { questionId: q2Record.id, label: "GIN (Generalized Inverted Index)", isCorrect: true, position: 1 },
-    { questionId: q2Record.id, label: "B-Tree", isCorrect: false, position: 2 },
-    { questionId: q2Record.id, label: "Hash Index", isCorrect: false, position: 3 },
-  ]);
+  if (!fsQuestionMap.has("How do React Server Components (RSC) handle client-side interactivity?")) {
+    const q1 = await db.insert(assessmentQuestions).values({
+      assessmentId: fsAssessment.id,
+      title: "How do React Server Components (RSC) handle client-side interactivity?",
+      description: "Explain the boundary between Server Components and Client Components.",
+      questionType: "multiple_choice",
+      points: 10,
+      position: 1,
+    }).returning();
+    const q1Record = q1[0]!;
+
+    await db.insert(assessmentQuestionOptions).values([
+      { questionId: q1Record.id, label: "Server components can import 'use client' components directly as leaves", isCorrect: true, position: 1 },
+      { questionId: q1Record.id, label: "Server components can use useState and useEffect hooks", isCorrect: false, position: 2 },
+      { questionId: q1Record.id, label: "All JavaScript bundles are shipped to the client regardless of directive", isCorrect: false, position: 3 },
+    ]);
+  }
+
+  if (!fsQuestionMap.has("Which index type is best suited for PostgreSQL full-text search queries?")) {
+    const q2 = await db.insert(assessmentQuestions).values({
+      assessmentId: fsAssessment.id,
+      title: "Which index type is best suited for PostgreSQL full-text search queries?",
+      description: "Selecting the optimal index for tsvector and search queries.",
+      questionType: "multiple_choice",
+      points: 10,
+      position: 2,
+    }).returning();
+    const q2Record = q2[0]!;
+
+    await db.insert(assessmentQuestionOptions).values([
+      { questionId: q2Record.id, label: "GIN (Generalized Inverted Index)", isCorrect: true, position: 1 },
+      { questionId: q2Record.id, label: "B-Tree", isCorrect: false, position: 2 },
+      { questionId: q2Record.id, label: "Hash Index", isCorrect: false, position: 3 },
+    ]);
+  }
 
   // 8. Jobs (20 Realistic Jobs)
   console.log("💼 Seeding 20 realistic jobs across departments...");
@@ -616,74 +673,101 @@ async function seed() {
   type CreatedJobInfo = {
     id: number;
     title: string;
+    slug: string;
     departmentId: number;
     stageMap: Map<string, number>;
   };
 
   const createdJobs: CreatedJobInfo[] = [];
+  const existingJobs = await db.select().from(jobs);
+  const existingJobMap = new Map<string, typeof jobs.$inferSelect>();
+  existingJobs.forEach((j) => existingJobMap.set(j.slug, j));
 
   for (const jd of jobsData) {
     const { skills, assessmentId, ...jobFields } = jd;
-    const insertedJobs = await db
-      .insert(jobs)
-      .values({
-        ...jobFields,
-        applicationEmailTemplateId: appReceivedTemplate.id,
-      })
-      .returning();
-    const job = insertedJobs[0]!;
+    let job: typeof jobs.$inferSelect;
 
-    // Skills
-    if (skills && skills.length > 0) {
+    if (existingJobMap.has(jd.slug)) {
+      job = existingJobMap.get(jd.slug)!;
+    } else {
+      const insertedJobs = await db
+        .insert(jobs)
+        .values({
+          ...jobFields,
+          applicationEmailTemplateId: appReceivedTemplate.id,
+        })
+        .returning();
+      job = insertedJobs[0]!;
+      existingJobMap.set(job.slug, job);
+    }
+
+    // Skills (Idempotent)
+    const existingJobSkills = await db.select().from(jobSkills).where(eq(jobSkills.jobId, job.id));
+    if (existingJobSkills.length === 0 && skills && skills.length > 0) {
       await db.insert(jobSkills).values(skills.map((s) => ({ jobId: job.id, skill: s })));
     }
 
-    // Pipeline stages for this job
-    const insertedStages = await db
-      .insert(jobPipelineStages)
-      .values(
-        stageTemplates.map((st) => ({
-          jobId: job.id,
-          name: st.name,
-          position: st.position,
-          stageType: st.stageType,
-          sourceTemplateId: st.id,
-        })),
-      )
-      .returning();
+    // Pipeline stages for this job (Idempotent)
+    let currentStages = await db.select().from(jobPipelineStages).where(eq(jobPipelineStages.jobId, job.id));
+    if (currentStages.length === 0) {
+      currentStages = await db
+        .insert(jobPipelineStages)
+        .values(
+          stageTemplates.map((st) => ({
+            jobId: job.id,
+            name: st.name,
+            position: st.position,
+            stageType: st.stageType,
+            sourceTemplateId: st.id,
+          })),
+        )
+        .returning();
+    }
 
     const stageMap = new Map<string, number>();
-    insertedStages.forEach((s) => stageMap.set(s.name, s.id));
+    currentStages.forEach((s) => stageMap.set(s.name, s.id));
 
-    // Hiring team: add primary user + relevant team members
-    await db.insert(jobHiringTeam).values([
-      { jobId: job.id, userId: primaryUser.id },
-      { jobId: job.id, userId: marcus.id },
-      { jobId: job.id, userId: elena.id },
-    ]);
+    // Hiring team: add primary user + relevant team members (Idempotent)
+    const existingTeam = await db.select().from(jobHiringTeam).where(eq(jobHiringTeam.jobId, job.id));
+    if (existingTeam.length === 0) {
+      await db.insert(jobHiringTeam).values([
+        { jobId: job.id, userId: primaryUser.id },
+        { jobId: job.id, userId: marcus.id },
+        { jobId: job.id, userId: elena.id },
+      ]);
+    }
 
-    // Attach assessment if configured
+    // Attach assessment if configured (Idempotent)
     if (assessmentId) {
-      const techStageId = stageMap.get("Technical Assessment");
-      if (techStageId) {
-        await db.insert(jobAssessmentAttachments).values({
-          jobId: job.id,
-          assessmentId,
-          triggerStageId: techStageId,
-        });
+      const existingAttachments = await db
+        .select()
+        .from(jobAssessmentAttachments)
+        .where(eq(jobAssessmentAttachments.jobId, job.id));
+      if (existingAttachments.length === 0) {
+        const techStageId = stageMap.get("Technical Assessment");
+        if (techStageId) {
+          await db.insert(jobAssessmentAttachments).values({
+            jobId: job.id,
+            assessmentId,
+            triggerStageId: techStageId,
+          });
+        }
       }
     }
 
-    createdJobs.push({ id: job.id, title: job.title, departmentId: job.departmentId, stageMap });
+    createdJobs.push({ id: job.id, title: job.title, slug: job.slug, departmentId: job.departmentId, stageMap });
   }
 
   // 9. Realistic Candidates & Applications (32 Candidates across stages)
   console.log("👨‍💼 Seeding 32 candidates with CV analysis, stage history & interviews...");
-  const primaryJob = createdJobs[0]!; // Senior Full-Stack
-  const staffJob = createdJobs[1]!;   // Staff Distributed Systems
-  const aiJob = createdJobs[2]!;      // Principal AI Scientist
-  const uxJob = createdJobs[4]!;      // Senior Product Designer
-  const opsJob = createdJobs[6]!;     // Senior DevOps
+  const jobBySlug = new Map<string, CreatedJobInfo>();
+  createdJobs.forEach((j) => jobBySlug.set(j.slug, j));
+
+  const primaryJob = jobBySlug.get("senior-fullstack-engineer-nextjs-node")!;
+  const staffJob = jobBySlug.get("staff-distributed-systems-architect")!;
+  const aiJob = jobBySlug.get("principal-ai-research-scientist-llms-rag")!;
+  const uxJob = jobBySlug.get("senior-product-designer-ui-ux")!;
+  const opsJob = jobBySlug.get("senior-devops-cloud-infrastructure-engineer")!;
 
   const candidatesData = [
     // --- HIRED (2 Candidates) ---
@@ -1487,178 +1571,200 @@ async function seed() {
     },
   ];
 
+  const existingCandidates = await db.select().from(candidates);
+  const existingCandidateMap = new Map<string, typeof candidates.$inferSelect>();
+  existingCandidates.forEach((c) => existingCandidateMap.set(`${c.email.toLowerCase()}_${c.jobId}`, c));
+
   for (const cData of candidatesData) {
     const stageId = cData.job.stageMap.get(cData.stageName)!;
     const appliedDate = new Date(Date.now() - cData.daysAgo * 24 * 60 * 60 * 1000);
 
-    const insertedCandidate = await db
-      .insert(candidates)
-      .values({
+    const candKey = `${cData.email.toLowerCase()}_${cData.job.id}`;
+    let candidate: typeof candidates.$inferSelect;
+
+    if (existingCandidateMap.has(candKey)) {
+      candidate = existingCandidateMap.get(candKey)!;
+    } else {
+      const insertedCandidate = await db
+        .insert(candidates)
+        .values({
+          jobId: cData.job.id,
+          firstName: cData.firstName,
+          lastName: cData.lastName,
+          email: cData.email,
+          phone: cData.phone,
+          resumeUrl: "https://pub-demo.r2.dev/sample-resume.pdf",
+          currentStageId: stageId,
+          status: cData.status,
+          appliedAt: appliedDate,
+          updatedAt: new Date(appliedDate.getTime() + 1000 * 60 * 60 * 4),
+        })
+        .returning();
+      candidate = insertedCandidate[0]!;
+      existingCandidateMap.set(candKey, candidate);
+    }
+
+    // Stage History: record movement through earlier stages up to current (Idempotent)
+    const existingHistory = await db
+      .select()
+      .from(candidateStageHistory)
+      .where(eq(candidateStageHistory.candidateId, candidate.id));
+
+    if (existingHistory.length === 0) {
+      const stageTemplateNames = [
+        "Screening",
+        "Screening Qualified",
+        "Technical Assessment",
+        "Team Interviews",
+        "Hiring Manager Review",
+        "Offer Extended",
+        "Hired",
+      ];
+      const currentIndex = stageTemplateNames.indexOf(cData.stageName);
+      const maxStageIdx = currentIndex >= 0 ? currentIndex : 0;
+
+      for (let sIdx = 0; sIdx <= maxStageIdx; sIdx++) {
+        const histStageName = stageTemplateNames[sIdx]!;
+        const histStageId = cData.job.stageMap.get(histStageName);
+        if (histStageId) {
+          const movedDate = new Date(appliedDate.getTime() + sIdx * 3 * 24 * 60 * 60 * 1000);
+          await db.insert(candidateStageHistory).values({
+            candidateId: candidate.id,
+            stageId: histStageId,
+            movedBy: primaryUser.id,
+            movedAt: movedDate < new Date() ? movedDate : new Date(),
+          });
+        }
+      }
+    }
+
+    // Candidate CV Analysis (Idempotent)
+    const existingCv = await db
+      .select()
+      .from(candidateCvAnalysis)
+      .where(eq(candidateCvAnalysis.candidateId, candidate.id));
+
+    if (existingCv.length === 0) {
+      await db.insert(candidateCvAnalysis).values({
+        candidateId: candidate.id,
         jobId: cData.job.id,
-        firstName: cData.firstName,
-        lastName: cData.lastName,
-        email: cData.email,
-        phone: cData.phone,
-        resumeUrl: "https://pub-demo.r2.dev/sample-resume.pdf",
-        currentStageId: stageId,
-        status: cData.status,
-        appliedAt: appliedDate,
-        updatedAt: new Date(appliedDate.getTime() + 1000 * 60 * 60 * 4),
-      })
-      .returning();
-    const candidate = insertedCandidate[0]!;
+        matchScore: cData.cv.score,
+        matchedSkills: cData.cv.skills,
+        missingSkills: cData.cv.missing,
+        scoreBreakdown: cData.cv.breakdown,
+        aiSummary: {
+          quickSummary: cData.cv.summary,
+          strengths: cData.cv.strengths,
+          gaps: cData.cv.gaps,
+          hiringSignal: cData.cv.signal,
+          verdict: cData.cv.verdict,
+        },
+        extractedText: `Resume of ${cData.firstName} ${cData.lastName}. Skills: ${cData.cv.skills.join(", ")}. Summary: ${cData.cv.summary}`,
+        status: "done",
+      });
+    }
 
-    // Stage History: record movement through earlier stages up to current
-    const stageTemplateNames = [
-      "Screening",
-      "Screening Qualified",
-      "Technical Assessment",
-      "Team Interviews",
-      "Hiring Manager Review",
-      "Offer Extended",
-      "Hired",
-    ];
-    const currentIndex = stageTemplateNames.indexOf(cData.stageName);
-    const maxStageIdx = currentIndex >= 0 ? currentIndex : 0;
+    // Assessment Attempt if applicable (Idempotent)
+    if (cData.hasAssessmentAttempt) {
+      const existingAttempts = await db
+        .select()
+        .from(candidateAssessmentAttempts)
+        .where(eq(candidateAssessmentAttempts.candidateId, candidate.id));
 
-    for (let sIdx = 0; sIdx <= maxStageIdx; sIdx++) {
-      const histStageName = stageTemplateNames[sIdx]!;
-      const histStageId = cData.job.stageMap.get(histStageName);
-      if (histStageId) {
-        const movedDate = new Date(appliedDate.getTime() + sIdx * 3 * 24 * 60 * 60 * 1000);
-        await db.insert(candidateStageHistory).values({
+      if (existingAttempts.length === 0) {
+        await db.insert(candidateAssessmentAttempts).values({
           candidateId: candidate.id,
-          stageId: histStageId,
-          movedBy: primaryUser.id,
-          movedAt: movedDate < new Date() ? movedDate : new Date(),
+          assessmentId: fsAssessment.id,
+          token: `token-${candidate.id}-${Date.now()}`,
+          status: "completed",
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          startedAt: new Date(appliedDate.getTime() + 2 * 24 * 60 * 60 * 1000),
+          completedAt: new Date(appliedDate.getTime() + 2 * 24 * 60 * 60 * 1000 + 35 * 60 * 1000),
+          scoreRaw: (cData.scorePct / 100) * 20,
+          scoreTotal: 20,
+          scorePercentage: cData.scorePct,
+          passed: cData.scorePct >= 80,
+          candidateNameInput: `${cData.firstName} ${cData.lastName}`,
+          candidateEmailInput: cData.email,
         });
       }
     }
 
-    // Candidate CV Analysis
-    await db.insert(candidateCvAnalysis).values({
-      candidateId: candidate.id,
-      jobId: cData.job.id,
-      matchScore: cData.cv.score,
-      matchedSkills: cData.cv.skills,
-      missingSkills: cData.cv.missing,
-      scoreBreakdown: cData.cv.breakdown,
-      aiSummary: {
-        quickSummary: cData.cv.summary,
-        strengths: cData.cv.strengths,
-        gaps: cData.cv.gaps,
-        hiringSignal: cData.cv.signal,
-        verdict: cData.cv.verdict,
-      },
-      extractedText: `Resume of ${cData.firstName} ${cData.lastName}. Skills: ${cData.cv.skills.join(", ")}. Summary: ${cData.cv.summary}`,
-      status: "done",
-    });
-
-    // Assessment Attempt if applicable
-    if (cData.hasAssessmentAttempt) {
-      await db.insert(candidateAssessmentAttempts).values({
-        candidateId: candidate.id,
-        assessmentId: fsAssessment.id,
-        token: `token-${candidate.id}-${Date.now()}`,
-        status: "completed",
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        startedAt: new Date(appliedDate.getTime() + 2 * 24 * 60 * 60 * 1000),
-        completedAt: new Date(appliedDate.getTime() + 2 * 24 * 60 * 60 * 1000 + 35 * 60 * 1000),
-        scoreRaw: (cData.scorePct / 100) * 20,
-        scoreTotal: 20,
-        scorePercentage: cData.scorePct,
-        passed: cData.scorePct >= 80,
-        candidateNameInput: `${cData.firstName} ${cData.lastName}`,
-        candidateEmailInput: cData.email,
-      });
-    }
-
-    // Interview if applicable
+    // Interview if applicable (Idempotent)
     if (cData.hasInterview) {
-      const interviewDate = new Date(appliedDate.getTime() + 5 * 24 * 60 * 60 * 1000);
-      const insertedInterview = await db
-        .insert(candidateInterviews)
-        .values({
-          candidateId: candidate.id,
-          stageId,
-          jobId: cData.job.id,
-          eventName: "Technical Architecture & System Design",
-          eventType: "virtual",
-          meetingUrl: `https://meet.google.com/techflow-${candidate.id}`,
-          interviewerId: marcus.id,
-          timeSlots: [{ datetime: interviewDate.toISOString(), selected: true }],
-          status: "scheduled",
-          outcome: cData.interviewOutcome ?? "pending",
-          scheduledAt: interviewDate,
-          durationMinutes: 60,
-          notes: `Conducted technical interview with ${cData.firstName} ${cData.lastName}.`,
-          createdBy: primaryUser.id,
-        })
-        .returning();
-      const interview = insertedInterview[0]!;
+      const existingInterviews = await db
+        .select()
+        .from(candidateInterviews)
+        .where(eq(candidateInterviews.candidateId, candidate.id));
 
-      // Interview Feedback
-      await db.insert(interviewFeedback).values({
-        interviewId: interview.id,
-        authorId: marcus.id,
-        content: `Candidate demonstrated solid understanding of software engineering trade-offs. Code was structured, verified with edge-case consideration, and communication was clear throughout.`,
-        rating: cData.interviewOutcome === "pass" ? 5 : 4,
-        createdAt: new Date(interviewDate.getTime() + 60 * 60 * 1000),
-      });
+      if (existingInterviews.length === 0) {
+        const interviewDate = new Date(appliedDate.getTime() + 5 * 24 * 60 * 60 * 1000);
+        const insertedInterview = await db
+          .insert(candidateInterviews)
+          .values({
+            candidateId: candidate.id,
+            stageId,
+            jobId: cData.job.id,
+            eventName: "Technical Architecture & System Design",
+            eventType: "virtual",
+            meetingUrl: `https://meet.google.com/techflow-${candidate.id}`,
+            interviewerId: marcus.id,
+            timeSlots: [{ datetime: interviewDate.toISOString(), selected: true }],
+            status: "scheduled",
+            outcome: cData.interviewOutcome ?? "pending",
+            scheduledAt: interviewDate,
+            durationMinutes: 60,
+            notes: `Conducted technical interview with ${cData.firstName} ${cData.lastName}.`,
+            createdBy: primaryUser.id,
+          })
+          .returning();
+        const interview = insertedInterview[0]!;
+
+        // Interview Feedback
+        await db.insert(interviewFeedback).values({
+          interviewId: interview.id,
+          authorId: marcus.id,
+          content: `Candidate demonstrated solid understanding of software engineering trade-offs. Code was structured, verified with edge-case consideration, and communication was clear throughout.`,
+          rating: cData.interviewOutcome === "pass" ? 5 : 4,
+          createdAt: new Date(interviewDate.getTime() + 60 * 60 * 1000),
+        });
+      }
     }
 
-    // Offer if applicable
+    // Offer if applicable (Idempotent)
     if (cData.hasOffer) {
-      const offerDate = new Date(appliedDate.getTime() + 12 * 24 * 60 * 60 * 1000);
-      const insertedOffer = await db
-        .insert(offers)
-        .values({
-          candidateId: candidate.id,
-          jobId: cData.job.id,
-          templateId: offerTemplate.id,
-          status: cData.offerStatus,
-          salary: cData.offerSalary,
-          currency: "USD",
-          employmentType: "full_time",
-          startDate: "2026-10-01",
-          reportingManager: "Marcus Chen",
-          benefits: "Comprehensive health/dental/vision, 401(k) matching up to 5%, annual $3,000 learning stipend, home office setup budget.",
-          offerLetterHtml: `<p>Formal offer of employment for ${cData.firstName} ${cData.lastName} as ${cData.job.title} with annual compensation of $${cData.offerSalary.toLocaleString()}.</p>`,
-          reviewToken: `offer-token-${candidate.id}`,
-          sentAt: offerDate,
-          acceptedAt: cData.offerStatus === "accepted" ? new Date(offerDate.getTime() + 2 * 24 * 60 * 60 * 1000) : null,
-          createdBy: primaryUser.id,
-          createdAt: offerDate,
-          updatedAt: cData.offerStatus === "accepted" ? new Date(offerDate.getTime() + 2 * 24 * 60 * 60 * 1000) : offerDate,
-        })
-        .returning();
-      const createdOffer = insertedOffer[0]!;
+      const existingOffers = await db
+        .select()
+        .from(offers)
+        .where(eq(offers.candidateId, candidate.id));
 
-      // Activity entries
-      await db.insert(candidateActivities).values([
-        {
-          candidateId: candidate.id,
-          jobId: cData.job.id,
-          offerId: createdOffer.id,
-          stageId,
-          actorId: primaryUser.id,
-          eventType: "offer_created",
-          metadata: { salary: cData.offerSalary, currency: "USD" },
-          createdAt: offerDate,
-        },
-        {
-          candidateId: candidate.id,
-          jobId: cData.job.id,
-          offerId: createdOffer.id,
-          stageId,
-          actorId: primaryUser.id,
-          eventType: "offer_sent",
-          metadata: { sentTo: candidate.email },
-          createdAt: new Date(offerDate.getTime() + 1000 * 60),
-        },
-      ]);
+      if (existingOffers.length === 0) {
+        const offerDate = new Date(appliedDate.getTime() + 12 * 24 * 60 * 60 * 1000);
+        const insertedOffer = await db
+          .insert(offers)
+          .values({
+            candidateId: candidate.id,
+            jobId: cData.job.id,
+            templateId: offerTemplate.id,
+            status: cData.offerStatus,
+            salary: cData.offerSalary,
+            currency: "USD",
+            employmentType: "full_time",
+            startDate: "2026-10-01",
+            reportingManager: "Marcus Chen",
+            benefits: "Comprehensive health/dental/vision, 401(k) matching up to 5%, annual $3,000 learning stipend, home office setup budget.",
+            offerLetterHtml: `<p>Formal offer of employment for ${cData.firstName} ${cData.lastName} as ${cData.job.title} with annual compensation of $${cData.offerSalary.toLocaleString()}.</p>`,
+            reviewToken: `offer-token-${candidate.id}`,
+            sentAt: offerDate,
+            acceptedAt: cData.offerStatus === "accepted" ? new Date(offerDate.getTime() + 2 * 24 * 60 * 60 * 1000) : null,
+            createdBy: primaryUser.id,
+            createdAt: offerDate,
+            updatedAt: cData.offerStatus === "accepted" ? new Date(offerDate.getTime() + 2 * 24 * 60 * 60 * 1000) : offerDate,
+          })
+          .returning();
+        const createdOffer = insertedOffer[0]!;
 
-      if (cData.offerStatus === "accepted") {
+        // Activity entries
         await db.insert(candidateActivities).values([
           {
             candidateId: candidate.id,
@@ -1666,9 +1772,9 @@ async function seed() {
             offerId: createdOffer.id,
             stageId,
             actorId: primaryUser.id,
-            eventType: "offer_accepted",
-            metadata: { acceptedOn: "2026-09-08" },
-            createdAt: new Date(offerDate.getTime() + 2 * 24 * 60 * 60 * 1000),
+            eventType: "offer_created",
+            metadata: { salary: cData.offerSalary, currency: "USD" },
+            createdAt: offerDate,
           },
           {
             candidateId: candidate.id,
@@ -1676,47 +1782,82 @@ async function seed() {
             offerId: createdOffer.id,
             stageId,
             actorId: primaryUser.id,
-            eventType: "candidate_hired",
-            metadata: { effectiveDate: "2026-10-01" },
-            createdAt: new Date(offerDate.getTime() + 2 * 24 * 60 * 60 * 1000 + 1000),
+            eventType: "offer_sent",
+            metadata: { sentTo: candidate.email },
+            createdAt: new Date(offerDate.getTime() + 1000 * 60),
           },
         ]);
+
+        if (cData.offerStatus === "accepted") {
+          await db.insert(candidateActivities).values([
+            {
+              candidateId: candidate.id,
+              jobId: cData.job.id,
+              offerId: createdOffer.id,
+              stageId,
+              actorId: primaryUser.id,
+              eventType: "offer_accepted",
+              metadata: { acceptedOn: "2026-09-08" },
+              createdAt: new Date(offerDate.getTime() + 2 * 24 * 60 * 60 * 1000),
+            },
+            {
+              candidateId: candidate.id,
+              jobId: cData.job.id,
+              offerId: createdOffer.id,
+              stageId,
+              actorId: primaryUser.id,
+              eventType: "candidate_hired",
+              metadata: { effectiveDate: "2026-10-01" },
+              createdAt: new Date(offerDate.getTime() + 2 * 24 * 60 * 60 * 1000 + 1000),
+            },
+          ]);
+        }
       }
     }
 
-    // Rejection if applicable
+    // Rejection if applicable (Idempotent)
     if (cData.hasRejection) {
-      const rejectDate = new Date(appliedDate.getTime() + 4 * 24 * 60 * 60 * 1000);
-      await db.insert(candidateRejections).values({
-        candidateId: candidate.id,
-        jobId: cData.job.id,
-        fromStageId: stageId,
-        rejectedBy: primaryUser.id,
-        reason: cData.rejectionReason,
-        internalNote: `Candidate notified via email template. Candidate was evaluated respectfully.`,
-        templateId: rejectionTemplate.id,
-        emailStatus: "sent",
-        sentAt: rejectDate,
-        rejectedAt: rejectDate,
-      });
+      const existingRejections = await db
+        .select()
+        .from(candidateRejections)
+        .where(eq(candidateRejections.candidateId, candidate.id));
+
+      if (existingRejections.length === 0) {
+        const rejectDate = new Date(appliedDate.getTime() + 4 * 24 * 60 * 60 * 1000);
+        await db.insert(candidateRejections).values({
+          candidateId: candidate.id,
+          jobId: cData.job.id,
+          fromStageId: stageId,
+          rejectedBy: primaryUser.id,
+          reason: cData.rejectionReason,
+          internalNote: `Candidate notified via email template. Candidate was evaluated respectfully.`,
+          templateId: rejectionTemplate.id,
+          emailStatus: "sent",
+          sentAt: rejectDate,
+          rejectedAt: rejectDate,
+        });
+      }
     }
   }
 
-  // 10. Public Page Settings
+  // 10. Public Page Settings (Idempotent)
   console.log("⚙️ Seeding public page settings...");
-  await db.insert(pageSettings).values({
-    allowedOrigins: [
-      "http://localhost:3000",
-      "http://localhost:8080",
-      "https://job-match-ai-frontend.vercel.app",
-    ],
-  });
+  const existingSettings = await db.select().from(pageSettings).limit(1);
+  if (existingSettings.length === 0) {
+    await db.insert(pageSettings).values({
+      allowedOrigins: [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "https://job-match-ai-frontend.vercel.app",
+      ],
+    });
+  }
 
   console.log("\n==================================================");
   console.log("✅ COMPREHENSIVE SEED FINISHED SUCCESSFULLY!");
   console.log(`- Seeded 1 Company: TechFlow Innovations`);
   console.log(`- Seeded ${deptNames.length} Departments`);
-  console.log(`- Seeded ${seededUsers.length} Users (including demo@jobmatch-ai.dev)`);
+  console.log(`- Seeded ${userMap.size} Users (including demo@jobmatch-ai.dev)`);
   console.log(`- Seeded 7 Pipeline Stage Templates`);
   console.log(`- Seeded 4 Templates (Offers, Confirmations, Rejections, Interviews)`);
   console.log(`- Seeded 3 Assessments with Question Banks`);
