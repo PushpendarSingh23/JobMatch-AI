@@ -6,29 +6,18 @@ import { DragDropProvider } from "@/components/dynamic-imports";
 import { PrefetchProvider } from "@/components/providers/prefetch-provider";
 import { CandidateSocketProvider } from "@/components/providers/candidate-socket-provider";
 import { SocketAuthProvider } from "@/components/providers/socket-auth-provider";
-import { asgardeo } from "@asgardeo/nextjs/server";
+import { getAuthAccessToken } from "@/lib/auth-token";
 import { SetupCompanyGate } from "@/components/guards/setup-company-gate";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { DashboardMainLoading } from "@/components/dashboard-main-loading";
-
-async function getAccessToken(): Promise<string | undefined> {
-  try {
-    const client = await asgardeo();
-    const sessionId = await client.getSessionId();
-    if (!sessionId) return undefined;
-    return await client.getAccessToken(sessionId);
-  } catch {
-    return undefined;
-  }
-}
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const socketToken = await getAccessToken();
+  const socketToken = await getAuthAccessToken();
 
   return (
     <QueryProvider>

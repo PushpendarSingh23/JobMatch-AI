@@ -189,6 +189,23 @@ patchFile(
   'server getClientOrigin.js (x-forwarded-host / NEXT_PUBLIC_APP_URL)'
 );
 
+// 9. server/asgardeo.js - Use getAccessTokenAction (session cookie JWT) as primary or fallback
+patchFile(
+  path.join(asgardeoNextJsDir, 'server', 'asgardeo.js'),
+  [
+    {
+      search: "import getSessionIdAction from './actions/getSessionId';\nimport AsgardeoNextClient from '../AsgardeoNextClient';",
+      replace: "import getSessionIdAction from './actions/getSessionId';\nimport getAccessTokenAction from './actions/getAccessToken';\nimport AsgardeoNextClient from '../AsgardeoNextClient';"
+    },
+    {
+      search: "const getAccessToken = async (sessionId) => {\n        const client = AsgardeoNextClient.getInstance();\n        return client.getAccessToken(sessionId);\n    };",
+      replace: "const getAccessToken = async (sessionId) => {\n        try {\n            const cookieToken = await getAccessTokenAction();\n            if (cookieToken) return cookieToken;\n        } catch {}\n        const client = AsgardeoNextClient.getInstance();\n        return client.getAccessToken(sessionId);\n    };"
+    }
+  ],
+  'server/asgardeo.js (cookie-based getAccessToken fallback)'
+);
+
 console.log('[patch-asgardeo] All patches applied successfully.');
+
 
 

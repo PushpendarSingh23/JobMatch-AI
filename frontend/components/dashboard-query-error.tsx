@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { AlertCircle, Lock, RefreshCw, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,9 @@ export function DashboardQueryError({
     errorMessage.toLowerCase().includes("not authenticated") ||
     errorMessage.includes("401") ||
     errorMessage.toLowerCase().includes("session expired") ||
-    errorMessage.toLowerCase().includes("invalid or expired token");
+    errorMessage.toLowerCase().includes("invalid or expired token") ||
+    errorMessage.includes("Server Components render") ||
+    errorMessage.includes("digest");
 
   const isForbiddenError =
     errorMessage.includes("403") ||
@@ -50,14 +52,25 @@ export function DashboardQueryError({
           Your session may have expired or you are not signed in. Please sign in
           again to access this page.
         </p>
-        <Button
-          onClick={() => {
-            window.location.href = "/login";
-          }}
-          className="gap-2 bg-amber-600 hover:bg-amber-700 text-white"
-        >
-          <LogIn className="w-4 h-4" /> Sign In Again
-        </Button>
+        <div className="flex items-center gap-3">
+          {onRetry && (
+            <Button
+              variant="outline"
+              onClick={onRetry}
+              className="gap-2"
+            >
+              <RefreshCw className="w-4 h-4" /> Try Again
+            </Button>
+          )}
+          <Button
+            onClick={() => {
+              window.location.href = "/login";
+            }}
+            className="gap-2 bg-amber-600 hover:bg-amber-700 text-white"
+          >
+            <LogIn className="w-4 h-4" /> Sign In Again
+          </Button>
+        </div>
       </div>
     );
   }

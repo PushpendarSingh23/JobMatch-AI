@@ -108,6 +108,15 @@ app.get("/health", async (req, res) => {
   });
 });
 
+app.get("/", (_req, res) => {
+  res.json({
+    name: "JobMatch AI Backend API",
+    status: "ok",
+    health: "/health",
+    docs: "/api-docs",
+  });
+});
+
 app.use("/public", publicRouter);
 app.use("/oauth", oauthRouter);
 
