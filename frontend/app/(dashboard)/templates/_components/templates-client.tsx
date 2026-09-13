@@ -14,6 +14,7 @@ import { TemplatesFilters } from "./templates-filters";
 import { TemplatesTable } from "./templates-table";
 import { TemplateTypePicker } from "./type-picker";
 import { TemplateDeleteDialog } from "./delete-dialog";
+import { DashboardQueryError } from "@/components/dashboard-query-error";
 
 const PAGE_LIMIT = 15;
 
@@ -34,7 +35,7 @@ export default function TemplatesPageClient() {
     return () => clearTimeout(t);
   }, [search]);
 
-  const { data: templatesRes, isLoading } = useTemplatesList({
+  const { data: templatesRes, isLoading, isError, error, refetch } = useTemplatesList({
     page,
     limit: PAGE_LIMIT,
     search: debouncedSearch || undefined,
@@ -121,17 +122,27 @@ export default function TemplatesPageClient() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <TemplatesTable
-          templates={templates}
-          isLoading={isLoading}
-          onRowClick={(template) => router.push(`/templates/${template.id}/edit`)}
-          onDuplicate={handleDuplicate}
-          onDelete={setDeleteId}
-          onDeleteSelected={handleDeleteSelected}
-          isDeletingSelected={bulkDeleteMutation.isPending}
-          pagination={pagination}
-          onPageChange={setPage}
-        />
+        {isError ? (
+          <div className="px-6 py-4">
+            <DashboardQueryError
+              title="Failed to load templates"
+              error={error}
+              onRetry={() => refetch()}
+            />
+          </div>
+        ) : (
+          <TemplatesTable
+            templates={templates}
+            isLoading={isLoading}
+            onRowClick={(template) => router.push(`/templates/${template.id}/edit`)}
+            onDuplicate={handleDuplicate}
+            onDelete={setDeleteId}
+            onDeleteSelected={handleDeleteSelected}
+            isDeletingSelected={bulkDeleteMutation.isPending}
+            pagination={pagination}
+            onPageChange={setPage}
+          />
+        )}
       </div>
 
       <TemplateTypePicker

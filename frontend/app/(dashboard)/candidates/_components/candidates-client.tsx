@@ -20,6 +20,7 @@ import {
   buildUpdateFormData,
 } from "../lib/candidate-types";
 import { CandidateStatusFilter } from "../lib/candidate-utils";
+import { DashboardQueryError } from "@/components/dashboard-query-error";
 
 const PAGE_LIMIT = 15;
 
@@ -43,7 +44,13 @@ export default function CandidatesPageClient() {
   }, [search]);
 
   // ── Data ───────────────────────────────────────────────────
-  const { data: candidatesData, isLoading } = useCandidates(selectedJobId, {
+  const {
+    data: candidatesData,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useCandidates(selectedJobId, {
     search: debouncedSearch || undefined,
     status: selectedStatus === "all" ? undefined : selectedStatus,
     page,
@@ -174,23 +181,33 @@ export default function CandidatesPageClient() {
       </div>
 
       {/* Scrollable table area */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <CandidatesTable
-          key={selectionScopeKey}
-          candidates={candidates}
-          isLoading={isLoading}
-          onRowClick={handleRowClick}
-          onEdit={openEditDialog}
-          onDelete={setDeleteTarget}
-          pagination={pagination}
-          onPageChange={setPage}
-          onDeleteSelected={handleDeleteSelected}
-          onDeleteAllMatching={handleDeleteAllMatchingCandidates}
-          isDeletingSelected={
-            deleteMutation.isPending || bulkDeleteMutation.isPending
-          }
-        />
-      </div>
+      {isError ? (
+        <div className="flex-1 min-h-0 overflow-y-auto px-6">
+          <DashboardQueryError
+            title="Failed to load candidates"
+            error={error}
+            onRetry={() => refetch()}
+          />
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <CandidatesTable
+            key={selectionScopeKey}
+            candidates={candidates}
+            isLoading={isLoading}
+            onRowClick={handleRowClick}
+            onEdit={openEditDialog}
+            onDelete={setDeleteTarget}
+            pagination={pagination}
+            onPageChange={setPage}
+            onDeleteSelected={handleDeleteSelected}
+            onDeleteAllMatching={handleDeleteAllMatchingCandidates}
+            isDeletingSelected={
+              deleteMutation.isPending || bulkDeleteMutation.isPending
+            }
+          />
+        </div>
+      )}
 
       <CandidateEditDialog
         candidate={editTarget}

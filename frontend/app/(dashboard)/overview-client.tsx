@@ -36,6 +36,7 @@ import {
   DeptChart,
   OfferChart,
 } from "./_components/charts";
+import { DashboardQueryError } from "@/components/dashboard-query-error";
 
 function ChartCard({
   title,
@@ -79,10 +80,13 @@ export function OverviewClient() {
   const { data: deptRes } = useDepartments();
   const departments = deptRes?.data ?? [];
 
-  const { data: analyticsRes } = useAnalyticsReport(
-    period,
-    selectedDepartmentId,
-  );
+  const {
+    data: analyticsRes,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useAnalyticsReport(period, selectedDepartmentId);
   const exportReport = useExportAnalyticsReport();
   const report = analyticsRes?.data;
 
@@ -202,64 +206,74 @@ export function OverviewClient() {
       </div>
 
       {/* Content */}
-      <div className="px-6 py-4 flex flex-col gap-4">
-        {/* Stat cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {STATS.map((s) => (
-            <div
-              key={s.label}
-              className="border border-slate-200 dark:border-neutral-800 rounded-xl bg-white dark:bg-neutral-900 p-4 flex flex-col gap-2"
-            >
-              <p className="text-xs text-slate-500 dark:text-neutral-400 font-medium">
-                {s.label}
-              </p>
-              <div className="flex items-end justify-between gap-2">
-                <p className="text-2xl font-medium text-slate-800 dark:text-neutral-100 leading-none">
-                  {s.value}
+      {isError ? (
+        <div className="px-6 py-4">
+          <DashboardQueryError
+            title="Failed to load analytics"
+            error={error}
+            onRetry={() => refetch()}
+          />
+        </div>
+      ) : (
+        <div className="px-6 py-4 flex flex-col gap-4">
+          {/* Stat cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {STATS.map((s) => (
+              <div
+                key={s.label}
+                className="border border-slate-200 dark:border-neutral-800 rounded-xl bg-white dark:bg-neutral-900 p-4 flex flex-col gap-2"
+              >
+                <p className="text-xs text-slate-500 dark:text-neutral-400 font-medium">
+                  {s.label}
                 </p>
-                <span
-                  className={`text-xs font-semibold px-1.5 py-0.5 rounded-full mb-0.5 ${s.up ? "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/30" : "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30"}`}
-                >
-                  {s.delta}
-                </span>
+                <div className="flex items-end justify-between gap-2">
+                  <p className="text-2xl font-medium text-slate-800 dark:text-neutral-100 leading-none">
+                    {s.value}
+                  </p>
+                  <span
+                    className={`text-xs font-semibold px-1.5 py-0.5 rounded-full mb-0.5 ${s.up ? "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/30" : "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30"}`}
+                  >
+                    {s.delta}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        {/* Charts row 1 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <ChartCard
-            title="Pipeline Report"
-            subtitle="Candidates By Stage (Current Vs. Previous Period)"
-          >
-            <PipelineChart data={pipelineData} />
-          </ChartCard>
-
-          <ChartCard
-            title="Candidate Volume"
-            subtitle="Applications And Hires Over Time"
-          >
-            <VolumeChart data={volumeData} />
-          </ChartCard>
-        </div>
-
-        {/* Charts row 2 */}
-        <div className={`grid grid-cols-1 gap-3 ${isManager ? "lg:grid-cols-2" : ""}`}>
-          <ChartCard title="Time To Hire" subtitle="Average days by department">
-            <DeptChart data={deptData} />
-          </ChartCard>
-
-          {isManager && (
+          {/* Charts row 1 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <ChartCard
-              title="Offer Trends"
-              subtitle="Offers sent vs. accepted (last 5 months)"
+              title="Pipeline Report"
+              subtitle="Candidates By Stage (Current Vs. Previous Period)"
             >
-              <OfferChart data={offerData} />
+              <PipelineChart data={pipelineData} />
             </ChartCard>
-          )}
+
+            <ChartCard
+              title="Candidate Volume"
+              subtitle="Applications And Hires Over Time"
+            >
+              <VolumeChart data={volumeData} />
+            </ChartCard>
+          </div>
+
+          {/* Charts row 2 */}
+          <div className={`grid grid-cols-1 gap-3 ${isManager ? "lg:grid-cols-2" : ""}`}>
+            <ChartCard title="Time To Hire" subtitle="Average days by department">
+              <DeptChart data={deptData} />
+            </ChartCard>
+
+            {isManager && (
+              <ChartCard
+                title="Offer Trends"
+                subtitle="Offers sent vs. accepted (last 5 months)"
+              >
+                <OfferChart data={offerData} />
+              </ChartCard>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Export Dialog */}
       <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>

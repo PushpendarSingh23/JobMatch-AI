@@ -15,9 +15,10 @@ import { AssessmentCardGrid } from "./card-grid";
 import { AssessmentInviteDialog } from "./invite-dialog";
 import { AssessmentDeleteDialog } from "./delete-dialog";
 import { generateAssessmentUrl } from "../lib/utils";
+import { DashboardQueryError } from "@/components/dashboard-query-error";
 
 export default function AssessmentsPageClient() {
-  const { data, isLoading } = useAssessments();
+  const { data, isLoading, isError, error, refetch } = useAssessments();
   const assessments = data?.data ?? [];
 
   const { data: candidatesData } = useCandidates();
@@ -93,12 +94,22 @@ export default function AssessmentsPageClient() {
     <div className="flex flex-1 flex-col bg-white dark:bg-neutral-950">
       <AssessmentHeader />
 
-      <AssessmentCardGrid
-        assessments={assessments}
-        isLoading={isLoading}
-        onDelete={setDeleteTarget}
-        onInvite={openInviteDialog}
-      />
+      {isError ? (
+        <div className="px-6 py-4">
+          <DashboardQueryError
+            title="Failed to load assessments"
+            error={error}
+            onRetry={() => refetch()}
+          />
+        </div>
+      ) : (
+        <AssessmentCardGrid
+          assessments={assessments}
+          isLoading={isLoading}
+          onDelete={setDeleteTarget}
+          onInvite={openInviteDialog}
+        />
+      )}
 
       <AssessmentInviteDialog
         assessment={inviteTarget}

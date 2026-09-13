@@ -25,6 +25,7 @@ import { InlineCalendar } from "./inline-calendar";
 import { InterviewList } from "./interview-list";
 import FeedbackDialog from "./feedback-dialog";
 import { EditDialog } from "./edit-dialog";
+import { DashboardQueryError } from "@/components/dashboard-query-error";
 
 export default function InterviewsClient() {
   const [view, setView] = useState<"list" | "calendar">("calendar");
@@ -54,7 +55,7 @@ export default function InterviewsClient() {
     return f;
   }, [search, departmentFilter]);
 
-  const { data } = useInterviews(activeFilters);
+  const { data, isLoading, isError, error, refetch } = useInterviews(activeFilters);
   const interviews = (data?.data ?? []).filter((iv) => {
     return statusFilter === "all" || iv.status === statusFilter;
   });
@@ -179,7 +180,13 @@ export default function InterviewsClient() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
-        {view === "calendar" ? (
+        {isError ? (
+          <DashboardQueryError
+            title="Failed to load interviews"
+            error={error}
+            onRetry={() => refetch()}
+          />
+        ) : view === "calendar" ? (
           <InlineCalendar interviews={interviews} />
         ) : interviews.length === 0 ? (
           <div className="rounded-md border border-dashed border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-6 py-16 text-center">

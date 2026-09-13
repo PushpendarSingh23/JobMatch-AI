@@ -1,8 +1,18 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import { eq } from "drizzle-orm";
+import { eq, ilike } from "drizzle-orm";
 import { db } from "../../db";
 import { users } from "../../db/schema/users";
 import type { User } from "../../db/schema/users";
+
+export function normalizeIdentityEmail(raw: string | undefined | null): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  let cleaned = raw.trim();
+  // Strip userstore domain prefix (e.g. "DEFAULT/user@domain.com" or "PRIMARY/user@domain.com" -> "user@domain.com")
+  if (cleaned.includes("/")) {
+    cleaned = cleaned.split("/").pop()!.trim();
+  }
+  return cleaned ? cleaned.toLowerCase() : null;
+}
 
 /**
  * Shared Asgardeo access-token verification, used by both the HTTP auth
@@ -116,14 +126,18 @@ export async function verifyAccessToken(
     throw new AuthError(401, "Invalid token: missing sub claim");
   }
 
-  const email =
+  const rawEmail =
     (payload["email"] as string | undefined) ??
-    (payload["username"] as string | undefined);
+    (payload["username"] as string | undefined) ??
+    (payload["preferred_username"] as string | undefined) ??
+    (payload["http://wso2.org/claims/emailaddress"] as string | undefined);
+
+  const normalizedEmail = normalizeIdentityEmail(rawEmail);
   const firstName = (payload["given_name"] as string | undefined) ?? "Unknown";
   const lastName = (payload["family_name"] as string | undefined) ?? "User";
 
-  if (!email) {
-    throw new AuthError(403, "Token missing required email claim");
+  if (!normalizedEmail) {
+    throw new AuthError(403, "Token missing required email or username claim");
   }
 
   // 1. Check if token contains explicit role claims from Asgardeo IdP
@@ -138,52 +152,69 @@ export async function verifyAccessToken(
     .where(eq(users.asgardeoUserId, sub))
     .limit(1);
 
-  // 3. If not found by asgardeoUserId, safely reconcile onto existing pre-seeded record by email
-  if (!user) {
-    [user] = await db
-      .update(users)
-      .set({ asgardeoUserId: sub, updatedAt: new Date() })
-      .where(eq(users.email, email))
-      .returning();
+  // 3. If not found by asgardeoUserId, safely reconcile onto existing DB record by normalized email
+  if (!user && normalizedEmail) {
+    const existingMatches = await db
+      .select()
+      .from(users)
+      .where(ilike(users.email, normalizedEmail))
+      .limit(1);
+
+    if (existingMatches.length > 0) {
+      const existingUser = existingMatches[0]!;
+      // Link the Asgardeo subject to this existing user and preserve their existing DB role
+      const [updatedUser] = await db
+        .update(users)
+        .set({ asgardeoUserId: sub, updatedAt: new Date() })
+        .where(eq(users.id, existingUser.id))
+        .returning();
+      user = updatedUser ?? existingUser;
+    }
   }
 
-  // 4. If genuinely new user (not in DB), provision a new record
+  // 4. Deterministic role resolution:
+  // - First use an explicitly trusted role claim if configured in the token
+  // - Otherwise, if user exists in DB, preserve that DB role (super_admin, hiring_manager, etc.)
+  // - Do NOT downgrade an existing privileged DB user merely because the token has no role claim
+  // - Only default to interviewer for a genuinely new user with no prior record
+  let effectiveRole: AppRole;
+  if (tokenRole) {
+    effectiveRole = tokenRole;
+    if (user && user.role !== tokenRole) {
+      const [updatedUser] = await db
+        .update(users)
+        .set({ role: tokenRole, updatedAt: new Date() })
+        .where(eq(users.id, user.id))
+        .returning();
+      if (updatedUser) user = updatedUser;
+    }
+  } else if (user) {
+    effectiveRole = (user.role as AppRole) ?? "interviewer";
+  } else {
+    effectiveRole = "interviewer";
+  }
+
+  // 5. If genuinely new user (not in DB), provision a new record with resolved role
   if (!user) {
-    const initialRole = tokenRole ?? "interviewer";
-    [user] = await db
+    const [insertedUser] = await db
       .insert(users)
       .values({
         asgardeoUserId: sub,
         firstName,
         lastName,
-        email,
-        role: initialRole,
+        email: normalizedEmail,
+        role: effectiveRole,
       })
       .returning();
 
-    if (!user) {
+    if (!insertedUser) {
       throw new AuthError(500, "Failed to provision user");
     }
+    user = insertedUser;
   }
 
   if (!user.isActive) {
     throw new AuthError(403, "User account is deactivated");
-  }
-
-  // 5. If Asgardeo token explicitly provided a role, synchronize it to DB if changed
-  if (tokenRole && user.role !== tokenRole) {
-    const [updatedUser] = await db
-      .update(users)
-      .set({ role: tokenRole, updatedAt: new Date() })
-      .where(eq(users.id, user.id))
-      .returning();
-    if (updatedUser) user = updatedUser;
-  }
-
-  // 6. Enforce database role for authorization
-  const effectiveRole = (user.role || tokenRole) as AppRole;
-  if (!effectiveRole) {
-    throw new AuthError(403, "No role assigned in database or token. Contact your administrator.");
   }
 
   return { ...user, role: effectiveRole };

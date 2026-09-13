@@ -7,6 +7,7 @@ import type { Job } from "@/types";
 import { JobFilters } from "./job-filters";
 import { JobsTable } from "./jobs-table";
 import { JobDeleteDialog } from "./job-delete-dialog";
+import { DashboardQueryError } from "@/components/dashboard-query-error";
 
 const PAGE_LIMIT = 15;
 
@@ -30,7 +31,7 @@ export function JobsPageClient() {
     return () => clearTimeout(t);
   }, [searchTerm]);
 
-  const { data, isLoading } = useJobsList({
+  const { data, isLoading, isError, error, refetch } = useJobsList({
     page,
     limit: PAGE_LIMIT,
     search: debouncedSearch || undefined,
@@ -110,16 +111,25 @@ export function JobsPageClient() {
         onClear={handleClearFilters}
       />
 
-      <JobsTable
-        jobs={filteredJobs}
-        departmentNameById={departmentNameById}
-        isLoading={isLoading}
-        onDelete={setDeleteTarget}
-        onDeleteSelected={handleDeleteSelected}
-        isDeletingSelected={bulkDeleteMutation.isPending}
-        pagination={pagination}
-        onPageChange={setPage}
-      />
+      {isError ? (
+        <DashboardQueryError
+          title="Failed to load jobs"
+          error={error}
+          onRetry={() => refetch()}
+          className="mx-6"
+        />
+      ) : (
+        <JobsTable
+          jobs={filteredJobs}
+          departmentNameById={departmentNameById}
+          isLoading={isLoading}
+          onDelete={setDeleteTarget}
+          onDeleteSelected={handleDeleteSelected}
+          isDeletingSelected={bulkDeleteMutation.isPending}
+          pagination={pagination}
+          onPageChange={setPage}
+        />
+      )}
 
       <JobDeleteDialog
         job={deleteTarget}
