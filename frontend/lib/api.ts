@@ -1,4 +1,7 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+const API_BASE_URL =
+  process.env.JOBMATCH_API_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://jobmatch-ai-nljp.onrender.com";
 
 export async function apiFetch<T>(
   path: string,
