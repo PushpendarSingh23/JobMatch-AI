@@ -8,7 +8,7 @@ const envSchema = z.object({
   ASGARDEO_ISSUER: z.string().min(1).default("https://api.asgardeo.io/t/orgsacma/oauth2/token"),
 
   ENCRYPTION_KEY: z.string().min(1).default("jobmatch_ai_encryption_key_32bytes!!"),
-  FRONTEND_URL: z.string().min(1).default("https://frontend-nine-omega-72.vercel.app"),
+  FRONTEND_URL: z.string().min(1).default("https://job-match-ai-frontend.vercel.app"),
 
   R2_ENDPOINT: z.string().default("https://dummy.r2.cloudflarestorage.com"),
   R2_ACCESS_KEY_ID: z.string().default("dummy_access_key"),

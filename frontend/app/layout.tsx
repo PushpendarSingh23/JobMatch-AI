@@ -39,9 +39,18 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const headersList = await headers();
-  const host = headersList.get("host") || "localhost:3000";
-  const protocol = headersList.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-  const origin = `${protocol}://${host}/`;
+  const host =
+    headersList.get("x-forwarded-host") ||
+    headersList.get("host") ||
+    "job-match-ai-frontend.vercel.app";
+  const protocol =
+    headersList.get("x-forwarded-proto") ||
+    (host.includes("localhost") ? "http" : "https");
+  const origin = process.env.NEXT_PUBLIC_APP_URL
+    ? (process.env.NEXT_PUBLIC_APP_URL.endsWith("/")
+        ? process.env.NEXT_PUBLIC_APP_URL
+        : `${process.env.NEXT_PUBLIC_APP_URL}/`)
+    : `${protocol}://${host}/`;
 
   return (
     <html

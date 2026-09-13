@@ -112,8 +112,8 @@ patchFile(
       replace: "catch (error) {\n        console.error('[handleOAuthCallbackAction CATCH]', {\n            message: error?.message,\n            code: error?.code,\n            description: error?.description,\n            data: error?.data || error?.response?.data,\n            error\n        });\n        const errMsg = error?.description || error?.message || (typeof error === 'string' ? error : 'Authentication failed');\n        return {\n            error: errMsg,\n            success: false,\n        };\n    }"
     },
     {
-      search: "catch (error) {\n        return {\n            error: error instanceof Error ? error.message : 'Authentication failed',\n            success: false,\n        };\n    }",
-      replace: "catch (error) {\n        console.error('[handleOAuthCallbackAction CATCH]', {\n            message: error?.message,\n            code: error?.code,\n            description: error?.description,\n            data: error?.data || error?.response?.data,\n            error\n        });\n        const errMsg = error?.description || error?.message || (typeof error === 'string' ? error : 'Authentication failed');\n        return {\n            error: errMsg,\n            success: false,\n        };\n    }"
+      search: "const afterSignInUrl = config.afterSignInUrl || '/';",
+      replace: "const rawAfterSignInUrl = config.afterSignInUrl || '/';\n        let afterSignInUrl = '/';\n        try {\n            afterSignInUrl = rawAfterSignInUrl.startsWith('http') ? (new URL(rawAfterSignInUrl).pathname || '/') : rawAfterSignInUrl;\n        } catch {\n            afterSignInUrl = '/';\n        }"
     }
   ],
   'handleOAuthCallbackAction.js (session recovery, safe expiresIn & verbose error reporting)'
@@ -124,8 +124,12 @@ patchFile(
   path.join(asgardeoNextJsDir, 'client', 'contexts', 'Asgardeo', 'AsgardeoProvider.js'),
   [
     {
+      search: "if (result.success) {\n                        const target = result.redirectUrl || '/';\n                        window.location.href = target;\n                    }",
+      replace: "if (result.success) {\n                        let target = result.redirectUrl || '/';\n                        try {\n                            const parsed = new URL(target, window.location.origin);\n                            if (parsed.origin !== window.location.origin) {\n                                target = parsed.pathname + parsed.search + parsed.hash;\n                            }\n                        } catch {}\n                        window.location.href = target || '/';\n                    }"
+    },
+    {
       search: "if (result.success) {\n                        // Redirect to the success URL\n                        if (result.redirectUrl) {\n                            router.push(result.redirectUrl);\n                        }\n                        else {\n                            // Refresh the page to update authentication state\n                            window.location.reload();\n                        }\n                    }",
-      replace: "if (result.success) {\n                        const target = result.redirectUrl || '/';\n                        window.location.href = target;\n                    }"
+      replace: "if (result.success) {\n                        let target = result.redirectUrl || '/';\n                        try {\n                            const parsed = new URL(target, window.location.origin);\n                            if (parsed.origin !== window.location.origin) {\n                                target = parsed.pathname + parsed.search + parsed.hash;\n                            }\n                        } catch {}\n                        window.location.href = target || '/';\n                    }"
     },
     {
       search: "if (result?.data?.signInUrl) {\n            router.push(result.data.signInUrl);\n            return undefined;\n        }",

@@ -62,8 +62,8 @@ fi
 
 BASE_URL="https://api.asgardeo.io/t/${ASGARDEO_ORG}"
 APP_NAME="JobMatch AI"
-CALLBACK_URLS='["http://localhost:3000/", "http://localhost:3000", "http://127.0.0.1:3000/", "http://127.0.0.1:3000", "https://frontend-nine-omega-72.vercel.app/", "https://frontend-nine-omega-72.vercel.app"]'
-ALLOWED_ORIGINS='["http://localhost:3000", "http://127.0.0.1:3000", "https://frontend-nine-omega-72.vercel.app"]'
+CALLBACK_URLS='["http://localhost:3000/", "http://localhost:3000", "http://127.0.0.1:3000/", "http://127.0.0.1:3000", "https://job-match-ai-frontend.vercel.app/", "https://job-match-ai-frontend.vercel.app", "https://frontend-nine-omega-72.vercel.app/", "https://frontend-nine-omega-72.vercel.app"]'
+ALLOWED_ORIGINS='["http://localhost:3000", "http://127.0.0.1:3000", "https://job-match-ai-frontend.vercel.app", "https://frontend-nine-omega-72.vercel.app"]'
 REDIRECT_URI="http://localhost:3000/"
 
 APP_TEMPLATE_ID="nextjs-application"
