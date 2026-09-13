@@ -18,7 +18,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 import type { JobDetail, CustomQuestion } from "@/types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || "https://jobmatch-ai-nljp.onrender.com";
 
 type PublicFetchError = Error & { code?: string; status?: number };
 

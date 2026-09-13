@@ -3,7 +3,8 @@ import AlreadyScheduled from "../_components/already-scheduled";
 import SlotPicker from "../_components/slot-picker";
 import { InterviewData } from "../types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || "https://jobmatch-ai-nljp.onrender.com";
 
 async function getInterview(token: string): Promise<InterviewData | null> {
   try {

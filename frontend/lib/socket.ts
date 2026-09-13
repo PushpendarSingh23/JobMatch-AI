@@ -2,7 +2,8 @@
 
 import { io, type Socket } from "socket.io-client";
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+const SOCKET_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://jobmatch-ai-nljp.onrender.com";
 
 // Give up after this many auth failures instead of looping forever.
 const MAX_AUTH_RETRIES = 3;
