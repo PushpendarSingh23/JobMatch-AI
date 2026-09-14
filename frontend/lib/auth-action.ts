@@ -2,28 +2,28 @@
 
 import "@/lib/env-config";
 import { cache } from "react";
-import { headers, cookies } from "next/headers";
+import { headers } from "next/headers";
 import { apiFetch } from "./api";
-import { getAuthAccessToken } from "./auth-token";
+import { getAuthAccessToken, getAuthDiagnostics } from "./auth-token";
 
 /**
  * Cached auth context — deduplicates the async asgardeo / token / headers
  * calls so that multiple `serverFetch` calls within the same server-render
  * (RSC request or server-action) share a single token lookup.
  */
-const getAuthContext = cache(async () => {
+const getAuthContext = cache(async (path: string) => {
+  const diag = await getAuthDiagnostics();
+
+  console.log("[auth-action:safe-diag]", {
+    hasSessionCookie: diag.hasSessionCookie,
+    hasSessionId: diag.hasSessionId,
+    hasAccessToken: diag.hasAccessToken,
+    path,
+  });
+
   const token = await getAuthAccessToken();
 
   if (!token) {
-    let cookieNames: string[] = [];
-    try {
-      const cookieStore = await cookies();
-      cookieNames = cookieStore.getAll().map((c) => c.name);
-    } catch {}
-    console.warn("[auth-action:getAuthContext] No access token resolved.", {
-      hasToken: false,
-      availableCookies: cookieNames,
-    });
     throw new Error("Not authenticated");
   }
 
@@ -49,13 +49,7 @@ export async function serverFetch<T>(
   path: string,
   options?: RequestInit,
 ): Promise<T> {
-  const { token, forwardedHeaders } = await getAuthContext();
-
-  console.log("[auth-action:serverFetch]", {
-    path,
-    hasToken: Boolean(token),
-    method: options?.method ?? "GET",
-  });
+  const { token, forwardedHeaders } = await getAuthContext(path);
 
   try {
     return await apiFetch<T>(path, token, {

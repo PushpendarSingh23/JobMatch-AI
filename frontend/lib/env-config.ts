@@ -9,9 +9,6 @@ if (typeof process !== "undefined" && process.env) {
     process.env.ASGARDEO_CLIENT_ID = "WKFedTcIAdrjVtWCsyYeorGYp6oa";
   }
 
-  if (!process.env.ASGARDEO_SECRET) {
-    process.env.ASGARDEO_SECRET = "dummy_asgardeo_secret_32_chars_long_key_string!!";
-  }
   const defaultAppUrl =
     process.env.NODE_ENV === "production"
       ? "https://job-match-ai-frontend.vercel.app"
