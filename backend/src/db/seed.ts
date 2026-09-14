@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Pool } from "pg";
 import {
   users,
@@ -167,8 +167,8 @@ async function seed() {
   const primaryUser = userMap.get("demo@jobmatch-ai.dev")!;
   const marcus = userMap.get("marcus.chen@jobmatch-ai.dev")!;
   const elena = userMap.get("elena.rostova@jobmatch-ai.dev")!;
-  const david = userMap.get("david.kim@jobmatch-ai.dev")!;
-  const priya = userMap.get("priya.patel@jobmatch-ai.dev")!;
+  const _david = userMap.get("david.kim@jobmatch-ai.dev")!;
+  const _priya = userMap.get("priya.patel@jobmatch-ai.dev")!;
   console.log(`- Resolved ${userMap.size} users.`);
 
   // 4. Pipeline Stage Templates (Idempotent: find or insert)

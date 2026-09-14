@@ -65,39 +65,40 @@ async function runMigration() {
     try {
       await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role varchar(50) DEFAULT 'interviewer' NOT NULL;`);
       console.log("[migrate] ✅ Ensured users.role column exists.");
-    } catch (e: any) {
-      console.warn("[migrate] Note on users.role column check:", e?.message);
+    } catch (e: unknown) {
+      console.warn("[migrate] Note on users.role column check:", (e as Error)?.message);
     }
 
     console.log("[migrate] ✅ All database migrations applied successfully!");
     await pool.end();
     process.exit(0);
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("=========================================");
     console.error("[migrate] ❌ MIGRATION FAILED WITH ERROR:");
     
-    const cause = err?.cause || err?.originalError || err;
+    const errObj = err as Record<string, unknown>;
+    const cause = (errObj?.cause || errObj?.originalError || err) as Record<string, unknown>;
 
-    console.error("Error Message:", err?.message || String(err));
-    console.error("Error Name:", err?.name);
-    console.error("Error Stack:", err?.stack);
+    console.error("Error Message:", (err as Error)?.message || String(err));
+    console.error("Error Name:", (err as Error)?.name);
+    console.error("Error Stack:", (err as Error)?.stack);
 
     if (cause && cause !== err) {
       console.error("--- UNDERLYING POSTGRES CAUSE ---");
-      console.error("Cause Message:", cause?.message);
-      console.error("Cause Name:", cause?.name);
-      console.error("Cause Stack:", cause?.stack);
-      if (cause?.code) console.error("Postgres Error Code:", cause.code);
-      if (cause?.severity) console.error("Postgres Severity:", cause.severity);
-      if (cause?.detail) console.error("Postgres Detail:", cause.detail);
-      if (cause?.hint) console.error("Postgres Hint:", cause.hint);
-      if (cause?.where) console.error("Postgres Where:", cause.where);
+      console.error("Cause Message:", cause["message"]);
+      console.error("Cause Name:", cause["name"]);
+      console.error("Cause Stack:", cause["stack"]);
+      if (cause["code"]) console.error("Postgres Error Code:", cause["code"]);
+      if (cause["severity"]) console.error("Postgres Severity:", cause["severity"]);
+      if (cause["detail"]) console.error("Postgres Detail:", cause["detail"]);
+      if (cause["hint"]) console.error("Postgres Hint:", cause["hint"]);
+      if (cause["where"]) console.error("Postgres Where:", cause["where"]);
     } else {
-      if (err?.code) console.error("Postgres Error Code:", err.code);
-      if (err?.severity) console.error("Postgres Severity:", err.severity);
-      if (err?.detail) console.error("Postgres Detail:", err.detail);
-      if (err?.hint) console.error("Postgres Hint:", err.hint);
-      if (err?.where) console.error("Postgres Where:", err.where);
+      if (errObj["code"]) console.error("Postgres Error Code:", errObj["code"]);
+      if (errObj["severity"]) console.error("Postgres Severity:", errObj["severity"]);
+      if (errObj["detail"]) console.error("Postgres Detail:", errObj["detail"]);
+      if (errObj["hint"]) console.error("Postgres Hint:", errObj["hint"]);
+      if (errObj["where"]) console.error("Postgres Where:", errObj["where"]);
     }
     
     console.error("=========================================");
