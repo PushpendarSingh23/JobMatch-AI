@@ -1,7 +1,8 @@
 "use server";
 
+import "@/lib/env-config";
 import { cache } from "react";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { apiFetch } from "./api";
 import { getAuthAccessToken } from "./auth-token";
 
@@ -14,6 +15,15 @@ const getAuthContext = cache(async () => {
   const token = await getAuthAccessToken();
 
   if (!token) {
+    let cookieNames: string[] = [];
+    try {
+      const cookieStore = await cookies();
+      cookieNames = cookieStore.getAll().map((c) => c.name);
+    } catch {}
+    console.warn("[auth-action:getAuthContext] No access token resolved.", {
+      hasToken: false,
+      availableCookies: cookieNames,
+    });
     throw new Error("Not authenticated");
   }
 
@@ -41,11 +51,25 @@ export async function serverFetch<T>(
 ): Promise<T> {
   const { token, forwardedHeaders } = await getAuthContext();
 
-  return apiFetch<T>(path, token, {
-    ...options,
-    headers: {
-      ...forwardedHeaders,
-      ...(options?.headers ?? {}),
-    },
+  console.log("[auth-action:serverFetch]", {
+    path,
+    hasToken: Boolean(token),
+    method: options?.method ?? "GET",
   });
+
+  try {
+    return await apiFetch<T>(path, token, {
+      ...options,
+      headers: {
+        ...forwardedHeaders,
+        ...(options?.headers ?? {}),
+      },
+    });
+  } catch (err: unknown) {
+    console.error("[auth-action:serverFetch] Upstream API call failed:", {
+      path,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
 }

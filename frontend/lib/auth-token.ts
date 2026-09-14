@@ -1,3 +1,4 @@
+import "@/lib/env-config";
 import { asgardeo } from "@asgardeo/nextjs/server";
 import { cookies } from "next/headers";
 
@@ -16,30 +17,33 @@ function parseJwtPayload(token: string): Record<string, unknown> | null {
 /**
  * Robust stateless access token resolver for Next.js App Router (RSC / Server Actions).
  * 
- * In serverless environments (like Vercel), in-memory SDK stores are empty across
- * disparate lambda invocations. This helper first checks Asgardeo's SDK (which our
- * patch equips with cookie resolution), and if unavailable, reads and parses the
- * signed session JWT from the HTTP-only cookie.
+ * Works across serverless environments (like Vercel). Checks:
+ * 1. Asgardeo SDK direct cookie resolution (client.getAccessToken())
+ * 2. Statutory Asgardeo session cookie JWT decoding (__asgardeo__session / asgardeo_session)
+ * 3. Fallback discovery across any available session cookie containing an OAuth accessToken
  */
 export async function getAuthAccessToken(): Promise<string | undefined> {
-  // 1. First attempt: Asgardeo SDK instance (equipped with cookie-aware patch)
+  // 1. First attempt: Asgardeo SDK instance method
   try {
     const client = await asgardeo();
-    const sessionId = await client.getSessionId();
-    if (sessionId) {
-      const token = await client.getAccessToken(sessionId);
-      if (token && typeof token === "string" && token.trim().length > 0) {
-        return token.trim();
-      }
+    const sessionId = (await client.getSessionId().catch(() => undefined)) || "";
+    // In our patched server/asgardeo.js, getAccessToken resolves via getAccessTokenAction() (cookie)
+    const token = await client.getAccessToken(sessionId);
+    if (token && typeof token === "string" && token.trim().length > 0) {
+      return token.trim();
     }
   } catch {
-    // SDK instance lookup failed or session expired in memory
+    // SDK invocation failed or session verification encountered mismatch
   }
 
   // 2. Second attempt: Direct statutory session cookie JWT decoding
   try {
     const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get("asgardeo_session")?.value;
+    // In @asgardeo/nextjs, CookieConfig.SESSION_COOKIE_NAME is "__asgardeo__session"
+    const sessionCookie =
+      cookieStore.get("__asgardeo__session")?.value ||
+      cookieStore.get("asgardeo_session")?.value;
+
     if (sessionCookie) {
       const payload = parseJwtPayload(sessionCookie);
       const token = payload?.["accessToken"];
@@ -47,8 +51,19 @@ export async function getAuthAccessToken(): Promise<string | undefined> {
         return token.trim();
       }
     }
+
+    // 3. Third attempt: Resilient scan across all cookies
+    for (const c of cookieStore.getAll()) {
+      if (c.name.includes("asgardeo") || c.name.includes("session")) {
+        const payload = parseJwtPayload(c.value);
+        const token = payload?.["accessToken"];
+        if (typeof token === "string" && token.trim().length > 0) {
+          return token.trim();
+        }
+      }
+    }
   } catch {
-    // Session token unparseable
+    // Cookie store read failed
   }
 
   return undefined;
