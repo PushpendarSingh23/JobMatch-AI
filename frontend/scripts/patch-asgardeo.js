@@ -43,25 +43,25 @@ function patchFile(filePath, replacements, description) {
 
 const asgardeoNextJsDir = path.join(__dirname, '..', 'node_modules', '@asgardeo', 'nextjs', 'dist', 'esm');
 
-// 1. AsgardeoNextClient.js - Enable PKCE for SPA
+// 1. AsgardeoNextClient.js - Ensure enablePKCE defaults to false (confidential client)
 patchFile(
   path.join(asgardeoNextJsDir, 'AsgardeoNextClient.js'),
   [
     {
-      search: 'enablePKCE: false,',
-      replace: "enablePKCE: (rest.enablePKCE !== false && process.env['NEXT_PUBLIC_ASGARDEO_ENABLE_PKCE'] !== 'false'),"
+      search: "enablePKCE: (rest.enablePKCE !== false && process.env['NEXT_PUBLIC_ASGARDEO_ENABLE_PKCE'] !== 'false'),",
+      replace: "enablePKCE: false,"
     }
   ],
   'AsgardeoNextClient.js (enablePKCE)'
 );
 
-// 2. utils/decorateConfigWithNextEnv.js - Pass enablePKCE and fallback defaults
+// 2. utils/decorateConfigWithNextEnv.js - Fallback defaults and confidential client config
 patchFile(
   path.join(asgardeoNextJsDir, 'utils', 'decorateConfigWithNextEnv.js'),
   [
     {
       search: "signUpUrl: signUpUrl || process.env['NEXT_PUBLIC_ASGARDEO_SIGN_UP_URL'],",
-      replace: "signUpUrl: signUpUrl || process.env['NEXT_PUBLIC_ASGARDEO_SIGN_UP_URL'],\n        enablePKCE: config.enablePKCE ?? (process.env['NEXT_PUBLIC_ASGARDEO_ENABLE_PKCE'] !== 'false'),"
+      replace: "signUpUrl: signUpUrl || process.env['NEXT_PUBLIC_ASGARDEO_SIGN_UP_URL'],\n        enablePKCE: false,"
     },
     {
       search: "clientId: clientId || process.env['NEXT_PUBLIC_ASGARDEO_CLIENT_ID'],",
@@ -72,7 +72,7 @@ patchFile(
       replace: "baseUrl: baseUrl || process.env['NEXT_PUBLIC_ASGARDEO_BASE_URL'] || 'https://api.asgardeo.io/t/orgsacma',"
     }
   ],
-  'decorateConfigWithNextEnv.js (enablePKCE & fallback defaults)'
+  'decorateConfigWithNextEnv.js (fallback defaults)'
 );
 
 // 3. server/actions/signInAction.js - Include sessionId in state correlation & client init fallback

@@ -27,7 +27,7 @@ if (typeof process !== "undefined" && process.env) {
     process.env.NEXT_PUBLIC_ASGARDEO_AFTER_SIGN_OUT_URL = `${defaultAppUrl}/login`;
   }
   if (!process.env.NEXT_PUBLIC_ASGARDEO_ENABLE_PKCE) {
-    process.env.NEXT_PUBLIC_ASGARDEO_ENABLE_PKCE = "true";
+    process.env.NEXT_PUBLIC_ASGARDEO_ENABLE_PKCE = "false";
   }
 }
 
